@@ -1,0 +1,37 @@
+---
+driver:
+  name: hyperv
+  parent_vhd_folder: C:\VMs\Win2016TP5Core\Virtual Hard Disks
+  parent_vhd_name: Win2016TP5Core.vhdx
+  memory_startup_bytes: 2GB
+  vm_switch: ExternalVSwitch
+  vm_generation: 2
+transport:
+  name: winrm
+  username: Administrator
+  password: L0C4L4dmin!
+
+provisioner:
+    name: dsc
+    dsc_local_configuration_manager_version: wmf5
+    dsc_local_configuration_manager:
+      reboot_if_needed: true
+      debug_mode: none
+    configuration_script_folder: examples
+    configuration_script: dsc_configuration.ps1
+    modules_path: .
+    modules_from_gallery:
+      - cChoco
+
+verifier:
+  name: pester
+
+platforms:
+  - name: Win2016TP5-wmf5
+    driver:
+      parent_vhd: C:\VMs\Win2016TP5Core\Virtual Hard Disks\Win2016TP5Core.vhdx
+    provisioner:
+      dsc_local_configuration_manager_version: wmf5
+
+suites:
+  - name: Hubot
