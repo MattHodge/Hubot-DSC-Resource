@@ -2,13 +2,13 @@
 {
 
     Import-DscResource -ModuleName cChoco
-    Import-DscResource -ModuleName cHubotDSC
+    Import-DscResource -ModuleName Hubot
 
     # One can evaluate expressions to get the node list
     # E.g: $AllNodes.Where('Role -eq Web').NodeName
     node localhost
     {
-        cDSCHubotConfig asda
+        HubotConfig asda
         {
             BotConfigPath = 'C:\PoshHubot\config.json'
             BotName = 'bender'
@@ -43,14 +43,14 @@
             DependsOn = "[cChocoInstaller]installChoco"
         }
 
-        cDSCHubotInstall installHubot
+        HubotInstall installHubot
         {
             BotConfigPath = 'C:\PoshHubot\config.json'
             Ensure = 'Present'
             DependsOn = "[cChocoPackageInstaller]installNode"
         }
 
-        cDSCHubotScript removeRedisBrain
+        HubotScript removeRedisBrain
         {
             BotConfigPath = 'C:\PoshHubot\config.json'
             Name = 'hubot-redis-brain'
@@ -58,7 +58,7 @@
             DependsOn = "[cChocoPackageInstaller]installNode"
         }
 
-        cDSCHubotScript removeHerokuKeepalive
+        HubotScript removeHerokuKeepalive
         {
             BotConfigPath = 'C:\PoshHubot\config.json'
             Name = 'hubot-heroku-keepalive'
@@ -66,7 +66,7 @@
             DependsOn = "[cChocoPackageInstaller]installNode"
         }
 
-        cDSCHubotScript addAzureScripts
+        HubotScript addAzureScripts
         {
             BotConfigPath = 'C:\PoshHubot\config.json'
             Name = 'hubot-azure-scripts'

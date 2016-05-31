@@ -7,6 +7,81 @@ enum Ensure
     Present
 }
 
+class HubotConfigHelper
+{
+    [psobject] LoadHubotConfig ([string] $configPath)
+    {
+        if (!(Test-Path -Path $configPath))
+        {
+            throw "Unable to find configuration file at $($configPath)"
+        }
+        
+        # Load the PSHubot Config
+        try
+        {
+            $Config = Get-Content -Path $configPath | ConvertFrom-Json
+            Write-Verbose "Config loaded from $($configPath)"
+            return $Config
+        }
+        catch
+        {
+            throw "Configuration file at $($configPath) cannot be converted from json"
+        }
+    }
+
+    [System.Collections.ArrayList] GetExternalScripts ([string] $configPath)
+    {
+        $Config = $this.LoadHubotConfig($configPath)
+
+        Write-Verbose "Loading external scripts from $($Config.BotExternalScriptsPath)"
+
+        # Load the external scripts into an array
+        [System.Collections.ArrayList]$externalScripts = Get-Content -Path $Config.BotExternalScriptsPath -Raw | ConvertFrom-Json
+
+        return $externalScripts
+    }
+
+    [bool] ContainsExternalScript ([string] $configPath, [string]$Name)
+    {
+        # Load external scripts
+        $externalScripts = $this.GetExternalScripts($configPath)
+
+        if ($externalScripts -contains $Name)
+        {
+            Write-Verbose "External scripts contains $($Name)."
+            return $true
+        }
+        else
+        {
+            Write-Verbose "External scripts does not contain $($Name)."
+            return $false
+        }
+    }
+
+    [bool] NpmInstallationOccured ([string] $configPath)
+    {
+        $Config = $this.LoadHubotConfig($configPath)
+        
+        # Check if NPM has been run
+        $coffeeScriptNPM = Test-Path -Path "$($env:APPDATA)\npm\coffee"
+        $foreverNPM = Test-Path -Path "$($env:APPDATA)\npm\forever"
+        $yoNPM = Test-Path -Path "$($env:APPDATA)\npm\yo"
+
+        # See if hubot has been installed
+        $hubotInstall = Test-Path -Path "$($config.BotInstallPath)\package.json"
+
+
+        if ($coffeeScriptNPM -and $foreverNPM -and $yoNPM -and $hubotInstall)
+        {
+            return $true
+        }
+        else
+        {
+            return $false
+        }
+    }
+}
+
 [DscResource()]
 class HubotConfig
 {
@@ -162,39 +237,43 @@ class HubotInstall
     # Sets the desired state of the resource.
     [void] Set()
     {
-        if ($this.Ensure -eq [Ensure]::Absent)
+        # load helper functions
+        $helper = [HubotConfigHelper]::new()
+        
+        # Load config
+        $config = $helper.LoadHubotConfig($this.BotConfigPath)       
+
+        Write-Verbose -Message "Reloading Path Enviroment Variables"
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+ 
+        if ($this.Ensure -eq [Ensure]::Present)
         {
-            Remove-Item -Path $this.BotConfigPath -Force
-        }
-        else
-        {
-            try
-            {
-                $config = Get-Content -Path $this.BotConfigPath | ConvertFrom-Json
-            }
-            catch
-            {
-                throw "Unable to find configuration file at $($this.BotConfigPath)"
-            }
-
-            Write-Verbose -Message "Reloading Path Enviroment Variables"
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-
-            Write-Verbose -Message "Installing CoffeeScript"
-            Start-Process -FilePath npm -ArgumentList "install -g coffee-script" -Wait -NoNewWindow
-
-            Write-Verbose -Message "Installing Hubot Generator"
-            Start-Process -FilePath npm -ArgumentList "install -g yo generator-hubot" -Wait -NoNewWindow
-
-            Write-Verbose -Message "Installing Forever"
-            Start-Process -FilePath npm -ArgumentList "install -g forever" -Wait -NoNewWindow
+            $npmCmd = 'install'
 
             # Create bot directory
             if (-not(Test-Path -Path $Config.BotInstallPath))
             {
                 New-Item -Path $Config.BotInstallPath -ItemType Directory
             }
+        }
+        else
+        {
+            $npmCmd = 'uninstall'
+            Remove-Item -Path $this.BotConfigPath -Force
+        }
 
+        Write-Verbose -Message "$($npmCmd)ing CoffeeScript"
+        Start-Process -FilePath npm -ArgumentList "$($npmCmd) -g coffee-script" -Wait -NoNewWindow
+
+        Write-Verbose -Message "$($npmCmd)ing Hubot Generator"
+        Start-Process -FilePath npm -ArgumentList "$($npmCmd) -g yo generator-hubot" -Wait -NoNewWindow
+
+        Write-Verbose -Message "$($npmCmd)ing Forever"
+        Start-Process -FilePath npm -ArgumentList "$($npmCmd) -g forever" -Wait -NoNewWindow
+
+        if ($this.Ensure -eq [Ensure]::Present)
+        {
             Write-Verbose -Message "Generating Bot"
             Start-Process -FilePath yo -ArgumentList "hubot --owner=""$($Config.BotOwner)"" --name=""$($Config.BotName)"" --description=""$($Config.BotDescription)"" --adapter=""$($Config.BotAdapter)"" --no-insight" -NoNewWindow -Wait -WorkingDirectory $Config.BotInstallPath
         }
@@ -203,38 +282,31 @@ class HubotInstall
     # Tests if the resource is in the desired state.
     [bool] Test()
     {
-        if ($this.Ensure -eq [Ensure]::Absent)
+        # load helper functions
+        $helper = [HubotConfigHelper]::new()     
+        
+        if ($this.Ensure -eq [Ensure]::Present)
         {
-            return $true
-        }
-        else
-        {
-            # Load config file
-            try
-            {
-                $config = Get-Content -Path $this.BotConfigPath | ConvertFrom-Json
-            }
-            catch
-            {
-                throw "Unable to find configuration file at $($this.BotConfigPath)"
-            }
-            
-            # Check if NPM has been run
-            $coffeeScriptNPM = Test-Path -Path "$($env:APPDATA)\npm\coffee"
-            $foreverNPM = Test-Path -Path "$($env:APPDATA)\npm\forever"
-            $yoNPM = Test-Path -Path "$($env:APPDATA)\npm\yo"
-
-            # See if hubot has been installed
-            $hubotInstall = Test-Path -Path "$($config.BotInstallPath)\package.json"
-
-
-            if ($coffeeScriptNPM -and $foreverNPM -and $yoNPM -and $hubotInstall)
+            if ($helper.NpmInstallationOccured($this.BotConfigPath))
             {
                 return $true
             }
             else
             {
                 return $false
+            }
+        }
+        # absent case
+        else
+        {
+            if ($helper.NpmInstallationOccured($this.BotConfigPath))
+            {
+                # if npm is install when it is meant to be absent, not in desired state
+                return $false
+            }
+            else
+            {
+                return $true
             }
         }
     }
@@ -265,53 +337,13 @@ class HubotScript
     [DscProperty()]
     [string]$NameInConfig
 
-    [psobject] LoadHubotConfig ([string] $configPath)
-    {
-        # Load the PSHubot Config
-        try
-        {
-            $Config = Get-Content -Path $configPath | ConvertFrom-Json
-            Write-Verbose "Config loaded from $($configPath)"
-            return $Config
-        }
-        catch
-        {
-            throw "Unable to find configuration file at $($configPath)"
-        }
-    }
-
-    [System.Collections.ArrayList] GetExternalScripts ([string] $configPath)
-    {
-        $Config = $this.LoadHubotConfig($configPath)
-
-        Write-Verbose "Loading external scripts from $($Config.BotExternalScriptsPath)"
-
-        # Load the external scripts into an array
-        [System.Collections.ArrayList]$externalScripts = Get-Content -Path $Config.BotExternalScriptsPath -Raw | ConvertFrom-Json
-
-        return $externalScripts
-    }
-
-    [bool] ContainsExternalScript ([string] $configPath, [string]$Name)
-    {
-        # Load external scripts
-        $externalScripts = $this.GetExternalScripts($configPath)
-
-        if ($externalScripts -contains $Name)
-        {
-            Write-Verbose "External scripts contains $($Name)."
-            return $true
-        }
-        else
-        {
-            Write-Verbose "External scripts does not contain $($Name)."
-            return $false
-        }
-    }
 
     # Sets the desired state of the resource.
     [void] Set()
     {
+        # load helper functions
+        $helper = [HubotConfigHelper]::new()
+
         # If NameInConfig is set use that as the name (some npm packages have different names than the actual files)
         if ($this.NameInConfig)
         {
@@ -323,10 +355,10 @@ class HubotScript
         }
 
         # Load config file
-        $Config = $this.LoadHubotConfig($this.BotConfigPath)
+        $Config = $helper.LoadHubotConfig($this.BotConfigPath)
         
         # Load an array of the external scripts
-        $externalScripts = $this.GetExternalScripts($this.BotConfigPath)
+        $externalScripts = $helper.GetExternalScripts($this.BotConfigPath)
 
         if ($this.Ensure -eq [Ensure]::Present)
         {
@@ -362,6 +394,9 @@ class HubotScript
     # Tests if the resource is in the desired state.
     [bool] Test()
     {
+        # load helper functions
+        $helper = [HubotConfigHelper]::new()        
+        
         # If NameInConfig is set use that as the name (some npm packages have different names than the actual files)
         if ($this.NameInConfig)
         {
@@ -377,7 +412,7 @@ class HubotScript
         # Absent
         if ($this.Ensure -eq [Ensure]::Absent)
         {
-            if ($this.ContainsExternalScript($this.BotConfigPath, $NameInConfigFile))
+            if ($helper.ContainsExternalScript($this.BotConfigPath, $NameInConfigFile))
             {
                 return $false
             }
@@ -389,7 +424,7 @@ class HubotScript
         # Present
         else
         {
-            if ($this.ContainsExternalScript($this.BotConfigPath, $NameInConfigFile))
+            if ($helper.ContainsExternalScript($this.BotConfigPath, $NameInConfigFile))
             {
                 return $true
             }
