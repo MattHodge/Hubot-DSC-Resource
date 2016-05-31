@@ -209,7 +209,8 @@ class HubotConfig
         }
         else
         {
-            # TO DO, Work out how to test this resource properly
+            # TODO:
+            # Work out how to test this resource properly
             return $false
         }
     }
