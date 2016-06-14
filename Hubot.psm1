@@ -1,10 +1,39 @@
-﻿# Defines the values for the resource's Ensure property.
+﻿# TO DO
+# - Make class for calling NPM Install
+# - Make class for getting service state
+# - Make it retur HubotInstall object and HubotInstallService object
+# - Fix Script Analyiser Warnings
+
+# Defines the values for the resource's Ensure property.
 enum Ensure
 {
     # The resource must be absent.
     Absent
     # The resource must be present.
     Present
+}
+
+class HubotHelpers
+{
+    [string] RefreshPathVariable ()
+    {
+        $updatedPath = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        return $updatedPath
+    }
+
+    [bool] CheckPathExists ([string]$Path)
+    {
+        if (Test-Path -Path $Path)
+        {
+            Write-Verbose "Directory $($Path) exists."
+            return $true
+        }
+        else
+        {
+            Write-Verbose "Directory $($Path) exists."
+            return $false
+        }
+    }
 }
 
 [DscResource()]
@@ -14,18 +43,23 @@ class HubotInstall
     # A DSC resource must define at least one key property.
     [DscProperty(Key)]
     [string]$BotPath
-       
+
     [DscProperty(Mandatory)]
     [Ensure]$Ensure
 
     # Sets the desired state of the resource.
     [void] Set()
     {
-        Write-Verbose -Message "Reloading Path Enviroment Variables"
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $env:Path = [HubotHelpers]::new().RefreshPathVariable()
 
         $nodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
- 
+
+        if (!(Test-Path -Path $this.BotPath))
+        {
+            throw "The path $($this.BotPath) must exist and contain a Hubot installation in it. You can clone one from here: https://github.com/MattHodge/HubotWindows"
+        }
+
+
         if ($this.Ensure -eq [Ensure]::Present)
         {
             $npmCmd = 'install'
@@ -35,10 +69,10 @@ class HubotInstall
             $npmCmd = 'uninstall'
         }
 
-        Write-Verbose -Message "$($npmCmd)ing CoffeeScript"
-        #Start-Process -FilePath npm -ArgumentList "$($npmCmd) -g coffee-script" -Wait -NoNewWindow
+        Write-Verbose -Message "$($npmCmd)ing CoffeeScript at $($this.BotPath)"
+
         Start-Process -FilePath npm -ArgumentList "$($npmCmd) coffee-script" -Wait -NoNewWindow -WorkingDirectory $this.BotPath
-        
+
         Write-Verbose "$($npmCmd)ing all required npm modules"
         Start-Process -FilePath npm -ArgumentList "$($npmCmd)" -Wait -NoNewWindow -WorkingDirectory $this.BotPath
 
@@ -50,32 +84,18 @@ class HubotInstall
 
     # Tests if the resource is in the desired state.
     [bool] Test()
-    {   
+    {
         $nodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
-        
+
         # present case
         if ($this.Ensure -eq [Ensure]::Present)
         {
-            if (Test-Path -Path $nodeModulesPath)
-            {
-                return $true
-            }
-            else
-            {
-                return $false
-            }
+            return [HubotHelpers]::new().CheckPathExists($nodeModulesPath)
         }
         # absent case
         else
         {
-            if (Test-Path -Path $nodeModulesPath)
-            {
-                return $false
-            }
-            else
-            {
-                return $true
-            }            
+            return (![HubotHelpers]::new().CheckPathExists($nodeModulesPath))
         }
     }
     # Gets the resource's current state.
@@ -95,7 +115,7 @@ class HubotInstallService
     # Path where the Hubot is located
     [DscProperty(Key)]
     [string]$BotPath
-       
+
     # Name for the Hubot service
     [DscProperty(Mandatory)]
     [string]$ServiceName
@@ -109,16 +129,15 @@ class HubotInstallService
 
     [void] Set()
     {
-        Write-Verbose -Message "Reloading Path Enviroment Variables"
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $env:Path = [HubotHelpers]::new().RefreshPathVariable()
 
         if ($this.Ensure -eq [Ensure]::Present)
         {
-            
+
             $botLogPath = Join-Path -Path $this.BotPath -ChildPath 'Logs'
             Write-Verbose "Creating bot logging path at $($botLogPath)"
             New-Item -Path $botLogPath -Force -ItemType Directory
-            
+
             Write-Verbose "Installing Bot Service $($this.ServiceName)"
             Start-Process -FilePath nssm.exe -ArgumentList "install $($this.ServiceName) node" -Wait -NoNewWindow
             Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppDirectory $($this.BotPath)" -Wait -NoNewWindow
@@ -126,7 +145,7 @@ class HubotInstallService
             Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt""" -Wait -NoNewWindow
             Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt""" -Wait -NoNewWindow
             Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateFiles 1" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateOnline 1" -Wait -NoNewWindow 
+            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateOnline 1" -Wait -NoNewWindow
             Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateSeconds 86400" -Wait -NoNewWindow
         }
         else
@@ -139,7 +158,7 @@ class HubotInstallService
 
     # Tests if the resource is in the desired state.
     [bool] Test()
-    {   
+    {
         # present case
         if ($this.Ensure -eq [Ensure]::Present)
         {

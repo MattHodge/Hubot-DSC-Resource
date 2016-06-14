@@ -4,12 +4,13 @@ driver:
   parent_vhd_folder: C:\VMs\Win2016TP5Core\Virtual Hard Disks
   parent_vhd_name: Win2016TP5Core.vhdx
   memory_startup_bytes: 2GB
-  vm_switch: ExternalVSwitch
+  vm_switch: HyperVWifi
   vm_generation: 2
 transport:
   name: winrm
   username: Administrator
   password: L0C4L4dmin!
+  winrm_transport: plaintext
 
 provisioner:
     name: dsc
@@ -17,14 +18,19 @@ provisioner:
     dsc_local_configuration_manager:
       reboot_if_needed: true
       debug_mode: none
+      allow_module_overwrite: true
     configuration_script_folder: examples
     configuration_script: dsc_configuration.ps1
+    configuration_data_variable: configData
+    configuration_name: Hubot
     modules_path: .
     modules_from_gallery:
       - cChoco
+      - xPSDesiredStateConfiguration
 
 verifier:
   name: pester
+  test_folder: tests
 
 platforms:
   - name: Win2016TP5-wmf5
@@ -34,4 +40,4 @@ platforms:
       dsc_local_configuration_manager_version: wmf5
 
 suites:
-  - name: Hubot
+  - name: default

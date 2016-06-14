@@ -1,18 +1,11 @@
 ﻿configuration Hubot
 {
-    param (
-    
-        [Parameter(Mandatory=$true)] 
-        [ValidateNotNullorEmpty()] 
-        [PsCredential] $HubotAccount 
-    
-    )    
-
     Import-DscResource -ModuleName PSDesiredStateConfiguration
-    Import-DscResource -ModuleName @{ 'ModuleName' = 'Hubot' ; ModuleVersion = '1.1' }
+    Import-DscResource -Name MSFT_xRemoteFile -ModuleName xPSDesiredStateConfiguration
+    Import-DscResource -ModuleName Hubot
 
     node $AllNodes.Where{$_.Role -eq "Hubot"}.NodeName
-    {       
+    {
         Environment hubotslackadapter
         {
             Name = 'HUBOT_ADAPTER'
@@ -30,25 +23,7 @@
         Environment hubotslacktoken
         {
             Name = 'HUBOT_SLACK_TOKEN'
-            Value = 'XXXX'
-            Ensure = 'Present'
-        }
-          
-        User hubotuser
-        {
-            UserName = $HubotAccount.UserName
-            Ensure = 'Present'
-            Password = $HubotAccount
-            Disabled = $false
-            PasswordNeverExpires = $true
-            PasswordChangeRequired = $false
-        }
-
-        # To Do - deploy from a source to C:\myhubot2 (Git, File.. )
-
-        HubotInstall installHubot
-        {
-            BotPath = 'C:\myhubot2'
+            Value = 'xoxb-XXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXX'
             Ensure = 'Present'
         }
 
@@ -57,9 +32,32 @@
             ChocolateyInstallPath = 'C:\choco'
         }
 
+        # Download the HubotWindows Repo
+        xRemoteFile hubotRepo
+        {
+            DestinationPath = "$($env:Temp)\HubotWindows.zip"
+            Uri = "https://github.com/MattHodge/HubotWindows/releases/download/0.0.1/HubotWindows-0.0.1.zip"
+        }
+
+        # Extract the Hubot Repo
+        Archive extractHubotRepo
+        {
+            Path = "$($env:Temp)\HubotWindows.zip"
+            Destination = "C:\myhubot"
+            Ensure = 'Present'
+            DependsOn = '[xRemoteFile]hubotRepo'
+        }
+
+        HubotInstall installHubot
+        {
+            BotPath = 'C:\myhubot'
+            Ensure = 'Present'
+            DependsOn = '[Archive]extractHubotRepo'
+        }
+
         HubotInstallService myhubotservice
         {
-            BotPath = 'C:\myhubot2'
+            BotPath = 'C:\myhubot'
             ServiceName = 'Hubot_Bender'
             BotAdapter = 'slack'
             Ensure = 'Present'
@@ -69,7 +67,6 @@
         Service modifyHubotService
         {
             Name = 'Hubot_Bender'
-            Credential = $HubotAccount
             Description = 'Bender Hubot Bot'
             Ensure = 'Present'
             StartupType = 'Automatic'
@@ -88,10 +85,3 @@ AllNodes = @(
         }
     )
 }
-
-#$secpasswd = ConvertTo-SecureString 'MyPassword101!' -AsPlainText -Force
-#$HubotAccount = New-Object System.Management.Automation.PSCredential ('Hubot', $secpasswd)
-
-#Hubot -ConfigurationData $configData -HubotAccount $HubotAccount -OutputPath C:\temp\
-
-#Start-DscConfiguration -Path C:\temp -Wait -Force -Verbose
