@@ -1,81 +1,87 @@
 ﻿configuration Hubot
 {
-
-    Import-DscResource -ModuleName cChoco
+    Import-DscResource -ModuleName PSDesiredStateConfiguration
+    Import-DscResource -Name MSFT_xRemoteFile -ModuleName xPSDesiredStateConfiguration
     Import-DscResource -ModuleName Hubot
 
-    # One can evaluate expressions to get the node list
-    # E.g: $AllNodes.Where('Role -eq Web').NodeName
-    node localhost
+    node $AllNodes.Where{$_.Role -eq "Hubot"}.NodeName
     {
-        HubotConfig asda
+        Environment hubotslackadapter
         {
-            BotConfigPath = 'C:\PoshHubot\config.json'
-            BotName = 'bender'
-            BotInstallPath = 'C:\myhubot'
-            BotAdapter = 'slack'
-            BotOwner = 'Matt <matt@hodge.com>'
-            BotDescription = 'My Awesome Bot'
-            BotLogPath = 'C:\PoshHubot\Logs'
-            BotLogDebug = $true
-            BotEnvironmentVariables = @{
-                Test = 'ASDaSdaSDaSD'
-            }
+            Name = 'HUBOT_ADAPTER'
+            Value = 'slack'
             Ensure = 'Present'
         }
 
-
-        cChocoInstaller installChoco
+        Environment hubotdebug
         {
-            InstallDir = "c:\choco"
+            Name = 'HUBOT_LOG_LEVEL'
+            Value = 'debug'
+            Ensure = 'Present'
         }
 
-        cChocoPackageInstaller installGit
+        Environment hubotslacktoken
         {
-            Name = "git.install"
-            DependsOn = "[cChocoInstaller]installChoco"
+            Name = 'HUBOT_SLACK_TOKEN'
+            Value = 'xoxb-XXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXX'
+            Ensure = 'Present'
         }
 
-        cChocoPackageInstaller installNode
+        HubotPrerequisites installPreqs
         {
-            Name = "nodejs.install"
-            Version = "5.10.1"
-            DependsOn = "[cChocoInstaller]installChoco"
+            ChocolateyInstallPath = 'C:\choco'
+        }
+
+        # Download the HubotWindows Repo
+        xRemoteFile hubotRepo
+        {
+            DestinationPath = "$($env:Temp)\HubotWindows.zip"
+            Uri = "https://github.com/MattHodge/HubotWindows/releases/download/0.0.1/HubotWindows-0.0.1.zip"
+        }
+
+        # Extract the Hubot Repo
+        Archive extractHubotRepo
+        {
+            Path = "$($env:Temp)\HubotWindows.zip"
+            Destination = "C:\myhubot"
+            Ensure = 'Present'
+            DependsOn = '[xRemoteFile]hubotRepo'
         }
 
         HubotInstall installHubot
         {
-            BotConfigPath = 'C:\PoshHubot\config.json'
+            BotPath = 'C:\myhubot'
             Ensure = 'Present'
-            DependsOn = "[cChocoPackageInstaller]installNode"
+            DependsOn = '[Archive]extractHubotRepo'
         }
 
-        HubotScript removeRedisBrain
+        HubotInstallService myhubotservice
         {
-            BotConfigPath = 'C:\PoshHubot\config.json'
-            Name = 'hubot-redis-brain'
-            Ensure = 'Absent'
-            DependsOn = "[cChocoPackageInstaller]installNode"
-        }
-
-        HubotScript removeHerokuKeepalive
-        {
-            BotConfigPath = 'C:\PoshHubot\config.json'
-            Name = 'hubot-heroku-keepalive'
-            Ensure = 'Absent'
-            DependsOn = "[cChocoPackageInstaller]installNode"
-        }
-
-        HubotScript addAzureScripts
-        {
-            BotConfigPath = 'C:\PoshHubot\config.json'
-            Name = 'hubot-azure-scripts'
-            NameInConfig = 'hubot-azure-scripts/brain/storage-blob-brain'
+            BotPath = 'C:\myhubot'
+            ServiceName = 'Hubot_Bender'
+            BotAdapter = 'slack'
             Ensure = 'Present'
-            DependsOn = "[cChocoPackageInstaller]installNode"
+            DependsOn = '[HubotPrerequisites]installPreqs'
+        }
+
+        Service modifyHubotService
+        {
+            Name = 'Hubot_Bender'
+            Description = 'Bender Hubot Bot'
+            Ensure = 'Present'
+            StartupType = 'Automatic'
+            State = 'Running'
+            DependsOn = '[HubotInstallService]myhubotservice'
         }
     }
 }
 
-#Hubot -OutputPath .
-#Start-DscConfiguration -Path C:\dsc -Verbose -Wait
+$configData = @{
+AllNodes = @(
+    @{
+        NodeName = 'localhost';
+        PSDscAllowPlainTextPassword = $true
+        Role = 'Hubot'
+        }
+    )
+}
