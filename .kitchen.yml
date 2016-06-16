@@ -30,7 +30,7 @@ provisioner:
 
 verifier:
   name: pester
-  test_folder: tests
+  test_folder: Tests
 
 platforms:
   - name: Win2016TP5-wmf5
