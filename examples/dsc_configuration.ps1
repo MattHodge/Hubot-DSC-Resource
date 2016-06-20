@@ -25,7 +25,7 @@
             DependsOn = "[User]Hubot"
         }
         
-        
+        # Set an adapter for hubot to use
         Environment hubotadapter
         {
             Name = 'HUBOT_ADAPTER'
@@ -33,6 +33,7 @@
             Ensure = 'Present'
         }
 
+        # Set the hubot debug level - either debug or info
         Environment hubotdebug
         {
             Name = 'HUBOT_LOG_LEVEL'
@@ -40,6 +41,7 @@
             Ensure = 'Present'
         }
 
+        # Set any other environment variables that may be required for the hubot scripts
         Environment hubotslacktoken
         {
             Name = 'HUBOT_SLACK_TOKEN'
@@ -58,7 +60,7 @@
         xRemoteFile hubotRepo
         {
             DestinationPath = "$($env:Temp)\HubotWindows.zip"
-            Uri = "https://github.com/MattHodge/HubotWindows/releases/download/0.0.1/HubotWindows-0.0.1.zip"
+            Uri = "https://dl.dropboxusercontent.com/u/727435/HubotWindows-0.0.2.zip"
         }
 
         # Extract the Hubot Repo
@@ -70,14 +72,15 @@
             DependsOn = '[xRemoteFile]hubotRepo'
         }
 
+        # Install Hubot
         HubotInstall installHubot
         {
             BotPath = $Node.HubotBotPath
             Ensure = 'Present'
             DependsOn = '[Archive]extractHubotRepo'
-
         }
 
+        # Install Hubot as a service using NSSM
         HubotInstallService myhubotservice
         {
             BotPath = $Node.HubotBotPath
@@ -85,16 +88,6 @@
             BotAdapter = $Node.HubotAdapter
             Ensure = 'Present'
             DependsOn = '[HubotPrerequisites]installPreqs'
-        }
-
-        Service modifyHubotService
-        {
-            Name = "Hubot_$($Node.HubotBotName)"
-            Description = "$($Node.HubotBotName) Hubot Bot"
-            Ensure = 'Present'
-            StartupType = 'Automatic'
-            State = 'Running'
-            DependsOn = '[HubotInstallService]myhubotservice'
             Credential = $Node.HubotUserCreds
         }
     }
@@ -112,7 +105,7 @@ AllNodes = @(
             PSDscAllowPlainTextPassword = $true
             Role = 'Hubot'
             HubotUserCreds = $hubotUserCreds
-            SlackAPIKey = 'xoxb-XXXXXXXXX-XXXXXXXXXXXXXXXXXXXXX'
+            SlackAPIKey = 'xoxb-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX'
             HubotAdapter = 'slack'
             HubotBotName = 'bender'
             HubotBotPath = 'C:\myhubot'

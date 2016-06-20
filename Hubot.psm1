@@ -120,6 +120,10 @@ class HubotInstallService
     [DscProperty(Mandatory)]
     [string]$ServiceName
 
+    # Credential to run the service under
+    [DscProperty()]
+    [PSCredential]$Credential
+
     # Bot adapter for Hubot to be used. Used as a paramater to start the server (-a $botadapter)
     [DscProperty(Mandatory)]
     [string]$BotAdapter
@@ -129,30 +133,61 @@ class HubotInstallService
 
     [void] Set()
     {
+        if (Get-Command -CommandType Application -Name nssm -ErrorAction SilentlyContinue)
+        {
+            $nssmPath = (Get-Command -CommandType Application -Name nssm).Source
+        }
+        else
+        {
+            throw "nssm.exe cannot be found. Cannot continue. Have you run the HubotInstall resource?"
+        }
+
         $env:Path = [HubotHelpers]::new().RefreshPathVariable()
 
         if ($this.Ensure -eq [Ensure]::Present)
         {
-
+            if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
+            {
+                Write-Verbose "Removing old service"
+                Stop-Service -Name $this.ServiceName -Force
+                Start-Process -FilePath $nssmPath -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
+            }
             $botLogPath = Join-Path -Path $this.BotPath -ChildPath 'Logs'
             Write-Verbose "Creating bot logging path at $($botLogPath)"
             New-Item -Path $botLogPath -Force -ItemType Directory
 
             Write-Verbose "Installing Bot Service $($this.ServiceName)"
-            Start-Process -FilePath nssm.exe -ArgumentList "install $($this.ServiceName) node" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppDirectory $($this.BotPath)" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppParameters "".\node_modules\coffee-script\bin\coffee .\node_modules\hubot\bin\hubot -a $($this.BotAdapter)""" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt""" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt""" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateFiles 1" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateOnline 1" -Wait -NoNewWindow
-            Start-Process -FilePath nssm.exe -ArgumentList "set $($this.ServiceName) AppRotateSeconds 86400" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "install $($this.ServiceName) node" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppDirectory $($this.BotPath)" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppParameters "".\node_modules\coffee-script\bin\coffee .\node_modules\hubot\bin\hubot -a $($this.BotAdapter)""" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt""" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt""" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateFiles 1" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateOnline 1" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateSeconds 86400" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) Description Hubot Service" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) Start SERVICE_AUTO_START" -Wait -NoNewWindow
+
+            # if a credetial is passed with no password assume LocalSystem
+            if ([string]::IsNullOrEmpty($this.Credential.UserName))
+            {
+                Write-Verbose "No credential passed, using LocalSystem."
+                Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) ObjectName LocalSystem" -Wait -NoNewWindow
+            }
+            # if a credential is passed with a password
+            else
+            {
+                Write-Verbose "Credential passed, using username $($this.Credential.UserName)."
+                Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) ObjectName .\$($this.Credential.UserName) $($this.Credential.GetNetworkCredential().Password)" -Wait -NoNewWindow
+            }
+            
+            Start-Service -Name $this.ServiceName
         }
         else
         {
             Write-Verbose "Removing Bot Service $($this.ServiceName)"
             Stop-Service -Name $this.ServiceName -Force -ErrorAction SilentlyContinue
-            Start-Process -FilePath nssm.exe -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
+            Start-Process -FilePath $nssmPath -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
         }
     }
 
@@ -162,7 +197,28 @@ class HubotInstallService
         # present case
         if ($this.Ensure -eq [Ensure]::Present)
         {
+            # array to store stat
+            $states = @()
+            
             if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
+            {
+                $states += $true
+
+                if ((Get-Service -Name $this.ServiceName).Status -eq 'Running')
+                {
+                    $states += $true
+                }
+                else
+                {
+                    $states += $false
+                }
+            }
+            else
+            {
+                $states += $false
+            }
+
+            if ($states -notcontains $false)
             {
                 return $true
             }

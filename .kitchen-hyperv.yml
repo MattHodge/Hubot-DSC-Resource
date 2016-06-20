@@ -1,11 +1,16 @@
 ---
 driver:
-  name: vagrant
-  communicator: winrm
-  gui: true
-
+  name: hyperv
+  parent_vhd_folder: C:\VMs\Win2016TP5Core\Virtual Hard Disks
+  parent_vhd_name: Win2016TP5Core.vhdx
+  memory_startup_bytes: 2GB
+  vm_switch: HyperVWifi
+  vm_generation: 2
 transport:
   name: winrm
+  username: Administrator
+  password: L0C4L4dmin!
+  winrm_transport: plaintext
 
 provisioner:
     name: dsc
@@ -20,26 +25,19 @@ provisioner:
     configuration_name: Hubot
     modules_path: .
     modules_from_gallery:
-     - cChoco
-     - xPSDesiredStateConfiguration
-
-platforms:
-- name: Windows2012R2
-  driver:
-    box: mwrock/Windows2012R2
-    gui: true
-  provisioner:
-    dsc_local_configuration_manager_version: wmf5
-# - name: Win2016TP5Core
-#   driver:
-#     box: MattHodge/Win2016TP5Core
-#     gui: true
-#   provisioner:
-#     dsc_local_configuration_manager_version: wmf5
+      - cChoco
+      - xPSDesiredStateConfiguration
 
 verifier:
   name: pester
   test_folder: Tests
+
+platforms:
+  - name: Win2016TP5-wmf5
+    driver:
+      parent_vhd: C:\VMs\Win2016TP5Core\Virtual Hard Disks\Win2016TP5Core.vhdx
+    provisioner:
+      dsc_local_configuration_manager_version: wmf5
 
 suites:
   - name: default
