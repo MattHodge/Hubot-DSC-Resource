@@ -60,7 +60,7 @@
         xRemoteFile hubotRepo
         {
             DestinationPath = "$($env:Temp)\HubotWindows.zip"
-            Uri = "https://dl.dropboxusercontent.com/u/727435/HubotWindows-0.0.2.zip"
+            Uri = "https://github.com/MattHodge/HubotWindows/releases/download/0.0.2/HubotWindows-0.0.2.zip"
         }
 
         # Extract the Hubot Repo
