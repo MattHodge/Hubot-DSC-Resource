@@ -33,6 +33,10 @@ Credential | Credential of account to run the Hubot service under. If left blank
 BotAdapter | The name of the Hubot adapter to use. (https://github.com/github/hubot/blob/master/docs/adapters.md) | `Yes`
 Ensure | Ensures that the bot is Present or Absent | `Yes`
 
+## Examples
+
+You can find an installation example here: [dsc_configuration.ps1](Examples/dsc_configuration.ps1)
+
 ## Installation
 
 To install the module, use:
