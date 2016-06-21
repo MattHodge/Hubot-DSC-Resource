@@ -16,6 +16,7 @@ Parameter | Notes |  Mandatory
 | ChocolateyInstallPath | Path to install Chocolatey | `No` |
 | PsDscRunAsCredential | Credential to run the Chocolatey installations as. Recommend to use the same account you want to run the Hubot service under. | `No` |
 
+
 ### HubotInstall
 
 Parameter | Notes |  Mandatory
