@@ -8,11 +8,7 @@
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [PSCredential] $PsDscRunAsCredential,
-
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string] $GitDownloadUri
+        [PSCredential] $PsDscRunAsCredential
     )
 
     # Import the module that defines custom resources
