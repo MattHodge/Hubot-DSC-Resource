@@ -1,4 +1,7 @@
 # Hubot (DSC Resource)
+
+![Hubot](http://i.imgur.com/NhTqeZ2.png)
+
 The **Hubot** module contains the `HubotPrerequisites`, `HubotInstall` and `HubotInstallService` DSC Resources to install Hubot on Windows.
 
 This resource installs and runs Hubot as a service on Windows using NSSM.
