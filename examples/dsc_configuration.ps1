@@ -52,7 +52,6 @@
         # Install the Prereqs using the same Hubot user
         HubotPrerequisites installPreqs
         {
-            ChocolateyInstallPath = 'C:\choco'
             PsDscRunAsCredential = $Node.HubotUserCreds
         }
 
