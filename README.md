@@ -11,21 +11,21 @@ For an introduction to using Hubot on Windows, take a look at [ChatOps on Window
 
 ### HubotPrerequisites
 
-Parameter | Notes |  Mandatory |  
+Parameter | Notes |  Mandatory
 -- | -- | --
 ChocolateyInstallPath | Path to install Chocolatey | `No`
 PsDscRunAsCredential | Credential to run the Chocolatey installations as. Recommend to use the same account you want to run the Hubot service under. | `No`
 
 ### HubotInstall
 
-Parameter | Notes |  Mandatory |  
+Parameter | Notes |  Mandatory
 -- | -- | --
 BotPath | Path that the Windows Hubot package is installed. (Get from here: https://github.com/MattHodge/HubotWindows) | `Yes`
 Ensure | Ensures that the bot is Present or Absent | `Yes`
 
 ### HubotInstallService
 
-Parameter | Notes |  Mandatory |  
+Parameter | Notes |  Mandatory
 -- | -- | --
 BotPath | Path that the Windows Hubot package is installed. (Get from here: https://github.com/MattHodge/HubotWindows) | `Yes`
 ServiceName | Name to give the Hubot Windows service | `Yes`
