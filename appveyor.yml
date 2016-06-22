@@ -14,13 +14,13 @@ install:
   - ps: Install-Module -Name PSScriptAnalyzer -Force
   - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_NUMBER)"
   - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_VERSION)"
-  - ps: Get-ChildItem -Path $env:APPVEYOR_BUILD_VERSION -Recurse | Select-Object Fullname
+  - ps: Get-ChildItem -Path $ENV:APPVEYOR_BUILD_FOLDER -Recurse | Select-Object Fullname
 
 build: false
 
 test_script:
 # Test with native PS version
-  - ps: . .\Tests\appveyor.pester.ps1 -Test -ProjectRoot "$($ENV:APPVEYOR_BUILD_FOLDER)\Tests\unit"
+  - ps: . .\Tests\appveyor.pester.ps1 -Test
 # Finalize pass - collect and upload results
   - ps: . .\Tests\appveyor.pester.ps1 -Finalize
 
