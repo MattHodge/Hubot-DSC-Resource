@@ -1,0 +1,35 @@
+# See http://www.appveyor.com/docs/appveyor-yml for many more options
+
+# Skip on updates to the readme.
+# We can force this by adding [skip ci] or [ci skip] anywhere in commit message
+skip_commits:
+  message: /updated readme.*/
+
+os: "WMF 5"
+
+version: '1.1.{build}'
+
+install:
+  - cinst pester -y
+  - ps: Install-PackageProvider -Name NuGet -Force
+  - ps: Install-Module psake -Force
+  - ps: Install-Module -Name PSScriptAnalyzer -Force
+  - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_NUMBER)"
+  - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_VERSION)"
+
+build: false
+
+test_script:
+# Test with native PS version
+  - ps: . .\Tests\appveyor.pester.ps1 -Test
+# Finalize pass - collect and upload results
+  - ps: . .\Tests\appveyor.pester.ps1 -Finalize
+
+after_test:
+  # Run PSake build
+  - ps: Invoke-psake -buildFile .\build.ps1 -parameters @{'build_version' = "1.1.$($env:APPVEYOR_BUILD_NUMBER)"}
+
+branches:
+  # whitelist
+  only:
+    - master
