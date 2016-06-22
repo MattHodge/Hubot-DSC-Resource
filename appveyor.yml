@@ -13,8 +13,7 @@ install:
   - ps: Install-Module psake -Force
   - ps: Install-Module -Name PSScriptAnalyzer -Force
   - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_NUMBER)"
-  - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_VERSION)"
-  - ps: Get-ChildItem -Path $ENV:APPVEYOR_BUILD_FOLDER -Recurse | Select-Object Fullname
+  - ps: Write-Output "Build Version $($env:APPVEYOR_BUILD_VERSION)"
 
 build: false
 

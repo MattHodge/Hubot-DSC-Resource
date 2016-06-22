@@ -1,33 +1,10 @@
-﻿properties {
-    $vmsForProject = @('default-Win2016TP5-wmf5')
-}
+﻿[cmdletbinding()]
+param(
+    [string[]]$Task = 'default'
+)
 
-task default -depends test
+if (!(Get-Module -Name Pester -ListAvailable)) { Install-Module -Name Pester -Force -Scope CurrentUser }
+if (!(Get-Module -Name psake -ListAvailable)) { Install-Module -Name psake -Force -Scope CurrentUser }
+if (!(Get-Module -Name PSDeploy -ListAvailable)) { Install-Module -Name PSDeploy -Force -Scope CurrentUser }
 
-task test {
-   $testResults = Invoke-Pester -Script ..\TestKitchenHelper\kitchen.tests.ps1 -PassThru
-
-    if ($testResults.FailedCount -gt 0) {
-        $testResults | Format-List
-        Write-Error -Message 'One or more Pester tests failed. Build cannot continue!'
-    }
-}
-
-task create -depends test {
-   kitchen create
-}
-
-task converge -depends test {
-    ForEach ($vm in $vmsForProject)
-    {
-        Get-VM -Name $vm | Checkpoint-VM -SnapshotName "$(Get-date -Format s) From Build"
-    }
-
-    kitchen exec -c "powershell.exe -command '& {Restart-Service winmgmt -Force -Verbose}'"
-
-    kitchen converge
-}
-
-task clean -depends test {
-    kitchen destroy
-}
+Invoke-psake -buildFile "$PSScriptRoot\psakeBuild.ps1" -taskList $Task -Verbose:$VerbosePreference
