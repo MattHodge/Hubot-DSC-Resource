@@ -12,15 +12,27 @@ task TestProperties {
 task Analyze {
     ForEach ($resource in $DSCResources)
     {
-        Write-Output "Running ScriptAnalyzer on $($resource)"
-        $saResults = Invoke-ScriptAnalyzer -Path $resource.FullName -Verbose:$false
-        if ($saResults) {
-            $saResults | Format-Table
-            if ($saResults.Severity -contains 'Error' -or $saResults.Severity -contains 'Warning')
-            {
-                Write-Error -Message "One or more Script Analyzer errors/warnings where found in $($resource). Build cannot continue!"  
+        try
+        {
+            Write-Output "Running ScriptAnalyzer on $($resource)"
+            $saResults = Invoke-ScriptAnalyzer -Path $resource.FullName -Verbose:$false
+            if ($saResults) {
+                $saResults | Format-Table
+                if ($saResults.Severity -contains 'Error' -or $saResults.Severity -contains 'Warning')
+                {
+                    Write-Error -Message "One or more Script Analyzer errors/warnings where found in $($resource). Build cannot continue!"  
+                }
             }
         }
+        catch
+        {
+            $ErrorMessage = $_.Exception.Message
+            $FailedItem = $_.Exception.ItemName
+            Write-Output $ErrorMessage
+            Write-Output $FailedItem
+            Write-Error "The build failed when working with $($resource)."
+        }
+
     } 
 }
 

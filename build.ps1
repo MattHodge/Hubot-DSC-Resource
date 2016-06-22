@@ -3,13 +3,31 @@ param(
     [string[]]$Task = 'default'
 )
 
-if (!(Get-Module -Name Pester -ListAvailable)) { Install-Module -Name Pester -Force -Scope CurrentUser }
-if (!(Get-Module -Name psake -ListAvailable)) { Install-Module -Name psake -Force -Scope CurrentUser }
-if (!(Get-Module -Name PSDeploy -ListAvailable)) { Install-Module -Name PSDeploy -Force -Scope CurrentUser }
+if (!(Get-PackageProvider -Name Nuget))
+{
+    Install-PackageProvider -Name NuGet -Force
+}
+
+$modulesToInstall = @(
+    'Pester',
+    'psake',
+    'PSDeploy',
+    'PSScriptAnalyzer'
+    'cChoco' # Required by DSC Resource
+)
+
+ForEach ($module in $modulesToInstall)
+{
+    if (!(Get-Module -Name $module -ListAvailable))
+    {
+        Install-Module -Name $module -Force -Scope CurrentUser
+    }
+}
 
 if (-not($env:APPVEYOR))
 {
     $env:appveyor_build_version = '10.10.10'
+    Write-Verbose "Not on AppVeyor, using fake version of $($env:appveyor_build_version)."
 }
 
 # Invoke PSake
