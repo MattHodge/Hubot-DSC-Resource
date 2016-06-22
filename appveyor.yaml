@@ -7,8 +7,6 @@ skip_commits:
 
 os: "WMF 5"
 
-version: '1.1.{build}'
-
 install:
   - cinst pester -y
   - ps: Install-PackageProvider -Name NuGet -Force
@@ -21,7 +19,7 @@ build: false
 
 test_script:
 # Test with native PS version
-  - ps: . .\Tests\appveyor.pester.ps1 -Test
+  - ps: . .\Tests\appveyor.pester.ps1 -Test -ProjectRoot "$($ENV:APPVEYOR_BUILD_FOLDER)\Tests\unit"
 # Finalize pass - collect and upload results
   - ps: . .\Tests\appveyor.pester.ps1 -Finalize
 
