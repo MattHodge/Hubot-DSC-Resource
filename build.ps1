@@ -7,4 +7,10 @@ if (!(Get-Module -Name Pester -ListAvailable)) { Install-Module -Name Pester -Fo
 if (!(Get-Module -Name psake -ListAvailable)) { Install-Module -Name psake -Force -Scope CurrentUser }
 if (!(Get-Module -Name PSDeploy -ListAvailable)) { Install-Module -Name PSDeploy -Force -Scope CurrentUser }
 
-Invoke-psake -buildFile "$PSScriptRoot\psakeBuild.ps1" -taskList $Task -Verbose:$VerbosePreference
+if (-not($env:APPVEYOR))
+{
+    $env:appveyor_build_version = '10.10.10'
+}
+
+# Invoke PSake
+Invoke-psake -buildFile "$PSScriptRoot\psakeBuild.ps1" -taskList $Task -parameters @{'build_version' = $env:appveyor_build_version} -Verbose:$VerbosePreference

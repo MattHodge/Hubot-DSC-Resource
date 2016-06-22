@@ -6,8 +6,8 @@
 param(
     [switch]$Finalize,
     [switch]$Test,
-    [string]$ProjectRoot = $ENV:APPVEYOR_BUILD_FOLDER
-    [string]$TestPath = $ProjectRoot\Tests
+    [string]$ProjectRoot = $ENV:APPVEYOR_BUILD_FOLDER,
+    [string]$TestPath = "$ProjectRoot\Tests"
 )
 
 #Initialize some variables, move to the project root
@@ -31,8 +31,16 @@ param(
 
         Import-Module Pester
 
-        Invoke-Pester @Verbose -Path $TestPath -OutputFormat NUnitXml -OutputFile "$ProjectRoot\$TestFile" -PassThru |
-            Export-Clixml -Path "$ProjectRoot\PesterResults_PS$PSVersion`_$Timestamp.xml"
+        if ($env:APPVEYOR)
+        {
+            Invoke-Pester @Verbose -Path $TestPath -OutputFormat NUnitXml -OutputFile "$ProjectRoot\$TestFile" -PassThru |
+                Export-Clixml -Path "$ProjectRoot\PesterResults_PS$PSVersion`_$Timestamp.xml"
+        }
+        else
+        {
+            Invoke-Pester @Verbose -Path $TestPath
+        }
+
 
         If($env:APPVEYOR_JOB_ID)
         {

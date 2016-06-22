@@ -5,6 +5,10 @@
 
 task default -depends Analyze, Test
 
+task TestProperties { 
+  Assert ($build_version -ne $null) "build_version should not be null"
+}
+
 task Analyze {
     ForEach ($resource in $DSCResources)
     {
@@ -21,7 +25,8 @@ task Analyze {
 }
 
 task Test {
-    $testResults = Invoke-Pester -Path $unitTests -PassThru
+    $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $unitTests
+    # $testResults = Invoke-Pester -Path $unitTests -PassThru
     if ($testResults.FailedCount -gt 0) {
         $testResults | Format-List
         Write-Error -Message 'One or more Pester tests failed. Build cannot continue!'

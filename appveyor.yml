@@ -17,15 +17,14 @@ install:
 
 build: false
 
+before_test:
+  - ps: .\build.ps1
+
 test_script:
 # Test with native PS version
-  - ps: . .\Tests\appveyor.pester.ps1 -Test
+#  - ps: . .\Tests\appveyor.pester.ps1 -Test
 # Finalize pass - collect and upload results
   - ps: . .\Tests\appveyor.pester.ps1 -Finalize
-
-after_test:
-  # Run PSake build
-  - ps: Invoke-psake -buildFile .\build.ps1 -parameters @{'build_version' = "1.1.$($env:APPVEYOR_BUILD_NUMBER)"}
 
 branches:
   # whitelist
