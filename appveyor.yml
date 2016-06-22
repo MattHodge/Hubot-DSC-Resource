@@ -14,6 +14,7 @@ install:
   - ps: Install-Module -Name PSScriptAnalyzer -Force
   - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_NUMBER)"
   - ps: Write-Output "Build Number $($env:APPVEYOR_BUILD_VERSION)"
+  - ps: Get-ChildItem -Path $env:APPVEYOR_BUILD_VERSION -Recurse | Select-Object Fullname
 
 build: false
 
