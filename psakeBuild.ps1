@@ -2,9 +2,15 @@
     $unitTests = "$PSScriptRoot\Tests\unit"
     $integrationTests = "$PSScriptRoot\Tests\integration"
     $DSCResources = Get-ChildItem *.psd1,*.psm1 -Recurse
+
+    # originalPath is the one containing the .psm1 and .psd1
+    $originalPath = $PSScriptRoot
+
+    # pathInModuleDir is the path where the symbolic link will be created which points to your repo
+    $pathInModuleDir = 'C:\Program Files\WindowsPowerShell\Modules\Hubot'
 }
 
-task default -depends Analyze, Test, IntegrationDeploy
+task default -depends Analyze, Test, IntegrationDeploy, IntegrationTest
 
 task TestProperties { 
   Assert ($build_version -ne $null) "build_version should not be null"
@@ -49,12 +55,17 @@ task Test {
 task IntegrationDeploy -depends Analyze, Test {
     try
     {
+        New-Item -ItemType SymbolicLink -Path $pathInModuleDir -Target $originalPath -Force   
+        
         . $PSScriptRoot\Examples\dsc_configuration.ps1
 
         Write-Verbose "Generating mof and putting it in $($PSScriptRoot)\mof"
-        Hubot -ConfigurationData $configData -OutputPath "$($PSScriptRoot)\mof"
+        Hubot -ConfigurationData $configData -OutputPath "$($PSScriptRoot)\mof" -ErrorAction Stop
 
-        Start-DscConfiguration -Path "$($PSScriptRoot)\mof" -Wait -Force -Verbose
+        if ($env:APPVEYOR)
+        {
+            Start-DscConfiguration -Path "$($PSScriptRoot)\mof" -Wait -Force -Verbose -ErrorAction Stop
+        }
     }
     catch
     {
@@ -62,16 +73,26 @@ task IntegrationDeploy -depends Analyze, Test {
         $FailedItem = $_.Exception.ItemName
         Write-Output $ErrorMessage
         Write-Output $FailedItem
-        Write-Error "The build failed when trying to generate mof."
+        throw "The build failed when trying to generate mof."
+    }
+
+    finally
+    {
+        Remove-Item -Path $pathInModuleDir -Force -Recurse
     }
 }
 
-task IntegrationTEst -depends Analyze, Test, IntegrationDeploy
-{
-    $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $integrationTests
-    # $testResults = Invoke-Pester -Path $unitTests -PassThru
-    if ($testResults.FailedCount -gt 0) {
-        $testResults | Format-List
-        Write-Error -Message 'One or more Pester integration tests failed. Build cannot continue!'
-    }  
+task IntegrationTest -depends Analyze, Test, IntegrationDeploy {
+    if ($env:APPVEYOR)
+    {
+        $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $integrationTests
+        if ($testResults.FailedCount -gt 0) {
+            $testResults | Format-List
+            Write-Error -Message 'One or more Pester integration tests failed. Build cannot continue!'
+        }  
+    }
+    else
+    {
+        Write-Output "Not doing integration testing as this is not Appveyor"
+    }
 }

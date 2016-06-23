@@ -14,6 +14,7 @@ $modulesToInstall = @(
     'PSDeploy',
     'PSScriptAnalyzer'
     'cChoco' # Required by DSC Resource
+    'xPSDesiredStateConfiguration' # Required by DSC Resource
 )
 
 ForEach ($module in $modulesToInstall)
