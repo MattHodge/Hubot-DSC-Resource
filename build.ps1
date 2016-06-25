@@ -3,7 +3,7 @@ param(
     [string[]]$Task = 'default'
 )
 
-if (!(Get-PackageProvider -Name Nuget))
+if (!(Get-PackageProvider -Name Nuget -ErrorAction SilentlyContinue))
 {
     Install-PackageProvider -Name NuGet -Force
 }
