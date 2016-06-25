@@ -1,10 +1,4 @@
-﻿# TO DO
-# - Make class for calling NPM Install
-# - Make class for getting service state
-# - Make it retur HubotInstall object and HubotInstallService object
-# - Fix Script Analyiser Warnings
-
-# Defines the values for the resource's Ensure property.
+﻿# Defines the values for the resource's Ensure property.
 enum Ensure
 {
     # The resource must be absent.
@@ -34,6 +28,45 @@ class HubotHelpers
             return $false
         }
     }
+
+    [PSCustomObject] RunProcess([string]$FilePath, [string]$ArgumentList, [string]$WorkingDirectory)
+    {
+        $env:Path = [HubotHelpers]::new().RefreshPathVariable()
+        
+        $currentEncoding = [Console]::OutputEncoding 
+        # Handle capture of NSSM output without spaces
+        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+
+        if (-not([string]::IsNullOrEmpty($WorkingDirectory)))
+        {
+            $pinfo.WorkingDirectory = $WorkingDirectory
+        }
+
+        $pinfo.FileName = $FilePath
+        $pinfo.RedirectStandardError = $true
+        $pinfo.RedirectStandardOutput = $true
+        $pinfo.UseShellExecute = $false
+        $pinfo.Arguments = $ArgumentList
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
+        $p.Start() | Out-Null
+        $p.WaitForExit()
+        $stdout = $p.StandardOutput.ReadToEnd()
+        $stderr = $p.StandardError.ReadToEnd()
+
+        $output = @{}
+        $output.stdout = $stdout
+        $output.stderr = $stderr
+        $output.exitcode = $p.ExitCode
+
+        [Console]::OutputEncoding = $currentEncoding
+
+        $returnObj =  New-Object -Property $output -TypeName PSCustomObject
+        Write-Verbose $returnObj
+        return $returnObj
+    }
 }
 
 [DscResource()]
@@ -47,14 +80,32 @@ class HubotInstall
     [DscProperty(Mandatory)]
     [Ensure]$Ensure
 
+    [DscProperty(NotConfigurable)]
+    [String]$NodeModulesPath
+
+    [DscProperty(NotConfigurable)]
+    [Boolean]$NodeModulesPathExists
+
+    # Gets the resource's current state.
+    [HubotInstall] Get()
+    {
+        $GetObject = [HubotInstall]::new()
+        $GetObject.BotPath = $this.BotPath
+        $GetObject.Ensure = $this.Ensure
+        $GetObject.NodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
+        $GetObject.NodeModulesPathExists = [HubotHelpers]::new().CheckPathExists($GetObject.NodeModulesPath)
+
+        return $GetObject
+    }
+
     # Sets the desired state of the resource.
     [void] Set()
     {
-        $env:Path = [HubotHelpers]::new().RefreshPathVariable()
+        $Helpers = [HubotHelpers]::new()
+        
+        $env:Path = $Helpers.RefreshPathVariable()              
 
-        $nodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
-
-        if (!(Test-Path -Path $this.BotPath))
+        if (!($Helpers.CheckPathExists($this.BotPath)))
         {
             throw "The path $($this.BotPath) must exist and contain a Hubot installation in it. You can clone one from here: https://github.com/MattHodge/HubotWindows"
         }
@@ -74,36 +125,31 @@ class HubotInstall
         Start-Process -FilePath npm -ArgumentList "$($npmCmd) coffee-script" -Wait -NoNewWindow -WorkingDirectory $this.BotPath
 
         Write-Verbose "$($npmCmd)ing all required npm modules"
-        Start-Process -FilePath npm -ArgumentList "$($npmCmd)" -Wait -NoNewWindow -WorkingDirectory $this.BotPath
+
+        $result = $Helpers.RunProcess('npm',$npmCmd,$this.BotPath)
+        
+        Write-Verbose $result
 
         if ($this.Ensure -eq [Ensure]::Absent)
         {
-            Remove-Item -Path $nodeModulesPath -Force
+            Remove-Item -Path $this.NodeModulesPath -Force
         }
     }
 
     # Tests if the resource is in the desired state.
     [bool] Test()
     {
-        $nodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
+        $TestObject = $This.Get()
 
         # present case
         if ($this.Ensure -eq [Ensure]::Present)
         {
-            return [HubotHelpers]::new().CheckPathExists($nodeModulesPath)
+            return $TestObject.NodeModulesPathExists
         }
         # absent case
         else
         {
-            return (![HubotHelpers]::new().CheckPathExists($nodeModulesPath))
-        }
-    }
-    # Gets the resource's current state.
-    [HubotInstall] Get()
-    {
-        return @{
-            BotConfigPath = $this.BotPath
-            Ensure = $this.Ensure
+            return (-not($TestObject.NodeModulesPathExists))
         }
     }
 }
@@ -131,8 +177,66 @@ class HubotInstallService
     [DscProperty(Mandatory)]
     [Ensure]$Ensure
 
+    [DscProperty(NotConfigurable)]
+    [Boolean]$State_ServiceExists
+
+    [DscProperty(NotConfigurable)]
+    [Boolean]$State_ServiceRunning
+
+    [DscProperty(NotConfigurable)]
+    [string]$NSSMAppParameters
+
+    [DscProperty(NotConfigurable)]
+    [Boolean]$State_NSSMAppParameters
+
+    # Gets the resource's current state.
+    [HubotInstallService] Get()
+    {
+        $Helpers = [HubotHelpers]::new()
+        
+        $GetObject = [HubotInstallService]::new()
+        $GetObject.BotPath = $this.BotPath
+        $GetObject.Ensure = $this.Ensure
+        $GetObject.ServiceName = $this.ServiceName
+        $GetObject.Credential = $this.Credential
+        $GetObject.BotAdapter = $this.BotAdapter
+        $GetObject.NSSMAppParameters = "/c .\bin\hubot.cmd -a $($this.BotAdapter)"
+
+        # set default states to save having nested if statements
+        $GetObject.State_ServiceExists = $false
+        $GetObject.State_ServiceRunning = $false
+        $GetObject.State_NSSMAppParameters = $false
+
+        if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
+        {
+            $GetObject.State_ServiceExists = $true
+
+            # Check service is running
+            if ((Get-Service -Name $this.ServiceName).Status -eq 'Running')
+            {
+                $GetObject.State_ServiceRunning = $true
+            }
+
+            # check if appparams set correctly
+            $currentAppParams = ($Helpers.RunProcess('nssm',"get $($this.ServiceName) AppParameters",$null)).stdout
+
+            # need to use trim to remove white spaces
+            if ([string]$currentAppParams.Trim() -eq [string]$GetObject.NSSMAppParameters)
+            {
+                $GetObject.State_NSSMAppParameters = $true
+            }
+        }
+        return $GetObject
+    }
+
     [void] Set()
     {
+        $Helpers = [HubotHelpers]::new()
+
+        $env:Path = $Helpers.RefreshPathVariable()
+
+        $TestObject = $This.Get()
+        
         if (Get-Command -CommandType Application -Name nssm -ErrorAction SilentlyContinue)
         {
             $nssmPath = (Get-Command -CommandType Application -Name nssm).Source
@@ -142,43 +246,51 @@ class HubotInstallService
             throw "nssm.exe cannot be found. Cannot continue. Have you run the HubotInstall resource?"
         }
 
-        $env:Path = [HubotHelpers]::new().RefreshPathVariable()
-
         if ($this.Ensure -eq [Ensure]::Present)
         {
-            if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
+            
+            if ($TestObject.State_ServiceExists)
             {
                 Write-Verbose "Removing old service"
                 Stop-Service -Name $this.ServiceName -Force
                 Start-Process -FilePath $nssmPath -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
             }
+
             $botLogPath = Join-Path -Path $this.BotPath -ChildPath 'Logs'
             Write-Verbose "Creating bot logging path at $($botLogPath)"
             New-Item -Path $botLogPath -Force -ItemType Directory
 
-            Write-Verbose "Installing Bot Service $($this.ServiceName)"
-            Start-Process -FilePath $nssmPath -ArgumentList "install $($this.ServiceName) node" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppDirectory $($this.BotPath)" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppParameters "".\node_modules\coffee-script\bin\coffee .\node_modules\hubot\bin\hubot -a $($this.BotAdapter)""" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt""" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt""" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateFiles 1" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateOnline 1" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) AppRotateSeconds 86400" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) Description Hubot Service" -Wait -NoNewWindow
-            Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) Start SERVICE_AUTO_START" -Wait -NoNewWindow
+            $arrayOfCmds = @(
+                "install $($this.ServiceName) cmd.exe"
+                "set $($this.ServiceName) AppDirectory $($this.BotPath)"
+                "set $($this.ServiceName) AppParameters ""/c .\bin\hubot.cmd -a $($this.BotAdapter)"""
+                "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt"""
+                "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt"""
+                "set $($this.ServiceName) AppDirectory $($this.BotPath)"
+                "set $($this.ServiceName) AppRotateFiles 1"
+                "set $($this.ServiceName) AppRotateOnline 1"
+                "set $($this.ServiceName) AppRotateSeconds 86400"
+                "set $($this.ServiceName) Description Hubot Service"
+                "set $($this.ServiceName) Start SERVICE_AUTO_START"
+            )
 
             # if a credetial is passed with no password assume LocalSystem
             if ([string]::IsNullOrEmpty($this.Credential.UserName))
             {
                 Write-Verbose "No credential passed, using LocalSystem."
-                Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) ObjectName LocalSystem" -Wait -NoNewWindow
+                $arrayOfCmds += "set $($this.ServiceName) ObjectName LocalSystem"
             }
             # if a credential is passed with a password
             else
             {
                 Write-Verbose "Credential passed, using username $($this.Credential.UserName)."
-                Start-Process -FilePath $nssmPath -ArgumentList "set $($this.ServiceName) ObjectName .\$($this.Credential.UserName) $($this.Credential.GetNetworkCredential().Password)" -Wait -NoNewWindow
+                $arrayOfCmds += "set $($this.ServiceName) ObjectName .\$($this.Credential.UserName) $($this.Credential.GetNetworkCredential().Password)"
+            }
+
+            ForEach ($cmd in $arrayOfCmds)
+            {
+                Write-Verbose "Running NSSM $($cmd)"
+                $Helpers.RunProcess($nssmPath,$cmd,$null) | Out-Null
             }
             
             Start-Service -Name $this.ServiceName
@@ -187,67 +299,25 @@ class HubotInstallService
         {
             Write-Verbose "Removing Bot Service $($this.ServiceName)"
             Stop-Service -Name $this.ServiceName -Force -ErrorAction SilentlyContinue
-            Start-Process -FilePath $nssmPath -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
+            $Helpers.RunProcess($nssmPath,"remove $($this.ServiceName) confirm",$null) | Out-Null
         }
     }
 
     # Tests if the resource is in the desired state.
     [bool] Test()
     {
+        $TestObject = $This.Get()
+
         # present case
         if ($this.Ensure -eq [Ensure]::Present)
         {
-            # array to store stat
-            $states = @()
-            
-            if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
-            {
-                $states += $true
-
-                if ((Get-Service -Name $this.ServiceName).Status -eq 'Running')
-                {
-                    $states += $true
-                }
-                else
-                {
-                    $states += $false
-                }
-            }
-            else
-            {
-                $states += $false
-            }
-
-            if ($states -notcontains $false)
-            {
-                return $true
-            }
-            else
-            {
-                return $false
-            }
+            # If any of the possible states for the service are false, not in desired state
+            return (-not($TestObject.psobject.Properties.Where({$PSItem.Name -like 'State_*'}).Value -contains $false))
         }
         # absent case
         else
         {
-            if (Get-Service -Name $this.ServiceName -ErrorAction SilentlyContinue)
-            {
-                return $false
-            }
-            else
-            {
-                return $true
-            }
-        }
-    }
-    # Gets the resource's current state.
-    [HubotInstallService] Get()
-    {
-        return @{
-            BotPath = $this.BotPath
-            ServiceName = $this.ServiceName
-            BotAdapter = $this.BotAdapter
-            Ensure = $this.Ensure
+            return (-not($TestObject.State_ServiceExists))
         }
     }
 }
