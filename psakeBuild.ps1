@@ -21,7 +21,7 @@ task Analyze {
     {      
         try
         {
-            Write-Output "Running ScriptAnalyzer on $($resource)"
+            Write-Output "Running ScriptAnalyzer on $($resource)" -FileName $resource
 
             if ($env:APPVEYOR)
             {
@@ -39,7 +39,7 @@ task Analyze {
                     {
                         Add-AppveyorMessage -Message "PSScriptAnalyzer output contained one or more result(s) with 'Error or Warning' severity.`
                         Check the 'Tests' tab of this build for more details." -Category Error
-                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Failed -ErrorMessage $saResultsString                    
+                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Failed -ErrorMessage $saResultsString -FileName $resource                 
                     }               
 
                     Write-Error -Message "One or more Script Analyzer errors/warnings where found in $($resource). Build cannot continue!"  
@@ -50,7 +50,7 @@ task Analyze {
 
                     if ($env:APPVEYOR)
                     {
-                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed -StdOut $saResultsString -Duration $timer.ElapsedMilliseconds
+                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed -StdOut $saResultsString -Duration $timer.ElapsedMilliseconds -FileName $resource
                     }
                 }
             }
