@@ -18,25 +18,7 @@ task TestProperties {
 
 task Analyze {
     ForEach ($resource in $DSCResources)
-    {
-      <#
-
-      $Results = Invoke-ScriptAnalyzer -Path $pwd -Recurse -Severity Error -ErrorAction SilentlyContinue
-      If ($Results) {
-        $ResultString = $Results | Out-String
-        Write-Warning $ResultString
-        Add-AppveyorMessage -Message "PSScriptAnalyzer output contained one or more result(s) with 'Error' severity.`
-        Check the 'Tests' tab of this build for more details." -Category Error
-        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Failed -ErrorMessage $ResultString
-         
-        # Failing the build
-        Throw "Build failed"
-      }
-      Else {
-        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed
-      }
-      #>        
-        
+    {      
         try
         {
             Write-Output "Running ScriptAnalyzer on $($resource)"
@@ -44,6 +26,7 @@ task Analyze {
             if ($env:APPVEYOR)
             {
                 Add-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Running
+                $timer = [System.Diagnostics.Stopwatch]::StartNew()
             }
 
             $saResults = Invoke-ScriptAnalyzer -Path $resource.FullName -Verbose:$false
@@ -67,7 +50,7 @@ task Analyze {
 
                     if ($env:APPVEYOR)
                     {
-                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed
+                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed -StdOut $saResultsString -Duration $timer.ElapsedMilliseconds
                     }
                 }
             }
