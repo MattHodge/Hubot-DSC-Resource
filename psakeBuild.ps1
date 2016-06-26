@@ -88,6 +88,10 @@ task IntegrationDeploy -depends Analyze, Test {
 
         if ($env:APPVEYOR)
         {
+            Get-Module -Name *
+
+            Get-DscResource
+            
             Start-DscConfiguration -Path "$($PSScriptRoot)\mof" -Wait -Force -Verbose -ErrorAction Stop
         }
     }

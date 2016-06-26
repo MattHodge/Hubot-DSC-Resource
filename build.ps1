@@ -25,13 +25,6 @@ ForEach ($module in $modulesToInstall)
     }
 }
 
-$test = $env:PSModulePath -split ';'
-
-ForEach ($t in $test)
-{
-    Get-ChildItem -Path $test -Recurse
-}
-
 if (-not($env:APPVEYOR))
 {
     $env:appveyor_build_version = '10.10.10'
