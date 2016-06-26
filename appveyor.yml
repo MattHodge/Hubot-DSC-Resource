@@ -12,6 +12,7 @@ install:
   - ps: Write-Output "Build Version $($env:APPVEYOR_BUILD_VERSION)"
 
 build: false
+version: '1.1.{build}'
 
 before_test:
   - ps: .\build.ps1

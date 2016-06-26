@@ -19,15 +19,56 @@ task TestProperties {
 task Analyze {
     ForEach ($resource in $DSCResources)
     {
+      <#
+
+      $Results = Invoke-ScriptAnalyzer -Path $pwd -Recurse -Severity Error -ErrorAction SilentlyContinue
+      If ($Results) {
+        $ResultString = $Results | Out-String
+        Write-Warning $ResultString
+        Add-AppveyorMessage -Message "PSScriptAnalyzer output contained one or more result(s) with 'Error' severity.`
+        Check the 'Tests' tab of this build for more details." -Category Error
+        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Failed -ErrorMessage $ResultString
+         
+        # Failing the build
+        Throw "Build failed"
+      }
+      Else {
+        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed
+      }
+      #>        
+        
         try
         {
             Write-Output "Running ScriptAnalyzer on $($resource)"
+
+            if ($env:APPVEYOR)
+            {
+                Add-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Running
+            }
+
             $saResults = Invoke-ScriptAnalyzer -Path $resource.FullName -Verbose:$false
             if ($saResults) {
                 $saResults | Format-Table
+                $saResultsString = $saResults | Out-String
                 if ($saResults.Severity -contains 'Error' -or $saResults.Severity -contains 'Warning')
                 {
+                    if ($env:APPVEYOR)
+                    {
+                        Add-AppveyorMessage -Message "PSScriptAnalyzer output contained one or more result(s) with 'Error or Warning' severity.`
+                        Check the 'Tests' tab of this build for more details." -Category Error
+                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Failed -ErrorMessage $saResultsString                    
+                    }               
+
                     Write-Error -Message "One or more Script Analyzer errors/warnings where found in $($resource). Build cannot continue!"  
+                }
+                else
+                {
+                    Write-Output "All ScriptAnalyzer tests passed"
+
+                    if ($env:APPVEYOR)
+                    {
+                        Update-AppveyorTest -Name "PsScriptAnalyzer" -Outcome Passed
+                    }
                 }
             }
         }
