@@ -27,4 +27,21 @@ describe "Hubot DSC Module - Unit Testing" {
             [HubotHelpers]::new().CheckPathExists("$($TestDrive)\$($guid)") | Should Be $false
         }
     }
+
+    context "HubotInstall" {
+        it "does not throw" {
+            { 
+                $x = [HubotInstall]::new()
+                $x.BotPath = 'C:\myhubot'
+                $x.Ensure = 'Present'
+                $x.Get() 
+            } | Should Not Throw
+        }
+        it "returns a [HubotInstall] class" {
+            $x = [HubotInstall]::new()
+            $x.BotPath = 'C:\myhubot'
+            $x.Ensure = 'Present'
+            $x.Get().GetType().Name | Should Be 'HubotInstall'
+        }
+    }
 }

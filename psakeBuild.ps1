@@ -1,6 +1,6 @@
 ﻿properties {
     $unitTests = "$PSScriptRoot\Tests\unit"
-    $integrationTests = "$PSScriptRoot\Tests\integration"
+    $MOFTests = "$PSScriptRoot\Tests\mof"
     $DSCResources = Get-ChildItem *.psd1,*.psm1 -Recurse
 
     # originalPath is the one containing the .psm1 and .psd1
@@ -10,7 +10,7 @@
     $pathInModuleDir = 'C:\Program Files\WindowsPowerShell\Modules\Hubot'
 }
 
-task default -depends Analyze, Test, IntegrationDeploy, IntegrationTest
+task default -depends Analyze, Test, MOFTestDeploy, MOFTest
 
 task TestProperties { 
   Assert ($build_version -ne $null) "build_version should not be null"
@@ -76,29 +76,16 @@ task Test {
     }
 }
 
-task IntegrationDeploy -depends Analyze, Test {
+task MOFTestDeploy -depends Analyze, Test {
     try
     {
-        New-Item -ItemType SymbolicLink -Path $pathInModuleDir -Target $originalPath -Force   
-
         if ($env:APPVEYOR)
         {
-            $mod = Get-Module -Name * | Out-String
-            Write-Host $mod
-
-
-            $res = Get-DscResource | Out-String
-            Write-Host $res
+            Start-Process -FilePath 'robocopy.exe' -ArgumentList "$PSScriptRoot $env:USERPROFILE\Documents\WindowsPowerShell\Modules\Hubot /S /R:1 /W:1" -Wait -NoNewWindow
         }
-
-        . $PSScriptRoot\Examples\dsc_configuration.ps1
-
-        Write-Verbose "Generating mof and putting it in $($PSScriptRoot)\mof"
-        Hubot -ConfigurationData $configData -OutputPath "$($PSScriptRoot)\mof" -ErrorAction Stop
-
-        if ($env:APPVEYOR)
-        {            
-            Start-DscConfiguration -Path "$($PSScriptRoot)\mof" -Wait -Force -Verbose -ErrorAction Stop
+        else
+        {
+            New-Item -ItemType SymbolicLink -Path $pathInModuleDir -Target $originalPath -Force | Out-Null
         }
     }
     catch
@@ -107,26 +94,19 @@ task IntegrationDeploy -depends Analyze, Test {
         $FailedItem = $_.Exception.ItemName
         Write-Output $ErrorMessage
         Write-Output $FailedItem
-        throw "The build failed when trying to generate mof."
+        throw "The build failed when trying prepare files for MOF tests."
     }
 
     finally
     {
-        Remove-Item -Path $pathInModuleDir -Force -Recurse
+        #Remove-Item -Path $pathInModuleDir -Force -Recurse
     }
 }
 
-task IntegrationTest -depends Analyze, Test, IntegrationDeploy {
-    if ($env:APPVEYOR)
-    {
-        $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $integrationTests
-        if ($testResults.FailedCount -gt 0) {
-            $testResults | Format-List
-            Write-Error -Message 'One or more Pester integration tests failed. Build cannot continue!'
-        }  
-    }
-    else
-    {
-        Write-Output "Not doing integration testing as this is not Appveyor"
+task MOFTest -depends Analyze, Test, MOFTestDeploy {
+    $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $MOFTests
+    if ($testResults.FailedCount -gt 0) {
+        $testResults | Format-List
+        Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
     }
 }
