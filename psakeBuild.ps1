@@ -17,6 +17,16 @@ task TestProperties {
 }
 
 task Analyze {
+    if ($env:APPVEYOR)
+    {
+        $mod = Get-Module -Name * | Out-String
+        Write-Host $mod
+
+
+        $res = Get-DscResource | Out-String
+        Write-Host $res
+    }
+
     ForEach ($resource in $DSCResources)
     {      
         try
@@ -87,11 +97,7 @@ task IntegrationDeploy -depends Analyze, Test {
         Hubot -ConfigurationData $configData -OutputPath "$($PSScriptRoot)\mof" -ErrorAction Stop
 
         if ($env:APPVEYOR)
-        {
-            Get-Module -Name *
-
-            Get-DscResource
-            
+        {            
             Start-DscConfiguration -Path "$($PSScriptRoot)\mof" -Wait -Force -Verbose -ErrorAction Stop
         }
     }
