@@ -52,7 +52,7 @@
         # Install the Prereqs using the same Hubot user
         HubotPrerequisites installPreqs
         {
-            PsDscRunAsCredential = $Node.HubotUserCreds
+            Ensure = 'Present'
         }
 
         # Download the HubotWindows Repo
@@ -76,9 +76,9 @@
         {
             BotPath = $Node.HubotBotPath
             Ensure = 'Present'
-            DependsOn = '[Archive]extractHubotRepo'
+            DependsOn = '[Archive]extractHubotRepo','[HubotPrerequisites]installPreqs'
         }
-
+        
         # Install Hubot as a service using NSSM
         HubotInstallService myhubotservice
         {
@@ -86,7 +86,7 @@
             ServiceName = "Hubot_$($Node.HubotBotName)"
             BotAdapter = $Node.HubotAdapter
             Ensure = 'Present'
-            DependsOn = '[HubotPrerequisites]installPreqs'
+            DependsOn = '[HubotInstall]installHubot','[HubotPrerequisites]installPreqs','[Group]HubotUser'
             Credential = $Node.HubotUserCreds
         }
     }

@@ -9,9 +9,12 @@ transport:
 
 provisioner:
     name: dsc
+    retry_on_exit_code:
+      - 35
     dsc_local_configuration_manager_version: wmf5
     dsc_local_configuration_manager:
-      reboot_if_needed: true
+      action_after_reboot: StopConfiguration
+      reboot_if_needed: false
       debug_mode: none
       allow_module_overwrite: true
     configuration_script_folder: examples
@@ -20,22 +23,15 @@ provisioner:
     configuration_name: Hubot
     modules_path: .
     modules_from_gallery:
-     - cChoco
      - xPSDesiredStateConfiguration
 
 platforms:
-- name: Windows2012R2
+- name: Win2016TP5Core
   driver:
-    box: mwrock/Windows2012R2
+    box: MattHodge/Win2016TP5Core
     gui: true
   provisioner:
     dsc_local_configuration_manager_version: wmf5
-# - name: Win2016TP5Core
-#   driver:
-#     box: MattHodge/Win2016TP5Core
-#     gui: true
-#   provisioner:
-#     dsc_local_configuration_manager_version: wmf5
 
 verifier:
   name: pester

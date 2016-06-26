@@ -4,7 +4,7 @@ describe "Hubot" {
         $pathsToTest = @(
             'C:\Program Files\Git\bin\git.exe'
             'C:\Program Files\nodejs\node.exe'
-            'C:\ProgramData\chocolatey\bin\nssm.exe'
+            'C:\nssm'
             'C:\myhubot'
             'C:\myhubot\node_modules'
             'C:\myhubot\node_modules\edge'

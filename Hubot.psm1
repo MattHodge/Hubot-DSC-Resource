@@ -32,10 +32,6 @@ class HubotHelpers
     [PSCustomObject] RunProcess([string]$FilePath, [string]$ArgumentList, [string]$WorkingDirectory)
     {
         $env:Path = [HubotHelpers]::new().RefreshPathVariable()
-        
-        $currentEncoding = [Console]::OutputEncoding 
-        # Handle capture of NSSM output without spaces
-        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
 
         $pinfo = New-Object System.Diagnostics.ProcessStartInfo
 
@@ -48,6 +44,8 @@ class HubotHelpers
         $pinfo.RedirectStandardError = $true
         $pinfo.RedirectStandardOutput = $true
         $pinfo.UseShellExecute = $false
+        $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
+        $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
         $pinfo.Arguments = $ArgumentList
         $p = New-Object System.Diagnostics.Process
         $p.StartInfo = $pinfo
@@ -57,15 +55,31 @@ class HubotHelpers
         $stderr = $p.StandardError.ReadToEnd()
 
         $output = @{}
+        $output.filepath = $FilePath
+        $output.arg = $ArgumentList
+        $output.workingdirectory = $WorkingDirectory
         $output.stdout = $stdout
         $output.stderr = $stderr
         $output.exitcode = $p.ExitCode
 
-        [Console]::OutputEncoding = $currentEncoding
-
         $returnObj =  New-Object -Property $output -TypeName PSCustomObject
         Write-Verbose $returnObj
         return $returnObj
+    }
+
+    [string] GetNSSMPath ()
+    {
+        if (Test-Path -Path 'C:\nssm')
+        {
+            # get latest version installed
+            $path = ((Get-ChildItem -Path C:\nssm\*\win64\nssm.exe)[-1]).FullName
+            Write-Verbose "Found nssm at $($path)"
+            return $path
+        }
+        else
+        {
+            throw 'NSSM folder cannot be found at C:\nssm'
+        } 
     }
 }
 
@@ -110,6 +124,15 @@ class HubotInstall
             throw "The path $($this.BotPath) must exist and contain a Hubot installation in it. You can clone one from here: https://github.com/MattHodge/HubotWindows"
         }
 
+        if (Get-Command -CommandType Application -Name npm -ErrorAction SilentlyContinue)
+        {
+            $npmPath = (Get-Command -CommandType Application -Name npm)[0].Source
+        }
+        else
+        {
+            throw "npm cannot be found. Cannot continue."
+        }
+
 
         if ($this.Ensure -eq [Ensure]::Present)
         {
@@ -122,13 +145,11 @@ class HubotInstall
 
         Write-Verbose -Message "$($npmCmd)ing CoffeeScript at $($this.BotPath)"
 
-        Start-Process -FilePath npm -ArgumentList "$($npmCmd) coffee-script" -Wait -NoNewWindow -WorkingDirectory $this.BotPath
+        Start-Process -FilePath $npmPath -ArgumentList "$($npmCmd) coffee-script" -Wait
 
         Write-Verbose "$($npmCmd)ing all required npm modules"
 
-        $result = $Helpers.RunProcess('npm',$npmCmd,$this.BotPath)
-        
-        Write-Verbose $result
+        Start-Process -FilePath $npmPath -ArgumentList $npmCmd -Wait
 
         if ($this.Ensure -eq [Ensure]::Absent)
         {
@@ -217,8 +238,10 @@ class HubotInstallService
                 $GetObject.State_ServiceRunning = $true
             }
 
+            $nssmPath = $Helpers.GetNSSMPath()
+
             # check if appparams set correctly
-            $currentAppParams = ($Helpers.RunProcess('nssm',"get $($this.ServiceName) AppParameters",$null)).stdout
+            $currentAppParams = ($Helpers.RunProcess($nssmPath,"get $($this.ServiceName) AppParameters",$null)).stdout
 
             # need to use trim to remove white spaces
             if ([string]$currentAppParams.Trim() -eq [string]$GetObject.NSSMAppParameters)
@@ -237,14 +260,7 @@ class HubotInstallService
 
         $TestObject = $This.Get()
         
-        if (Get-Command -CommandType Application -Name nssm -ErrorAction SilentlyContinue)
-        {
-            $nssmPath = (Get-Command -CommandType Application -Name nssm).Source
-        }
-        else
-        {
-            throw "nssm.exe cannot be found. Cannot continue. Have you run the HubotInstall resource?"
-        }
+        $nssmPath = $Helpers.GetNSSMPath()
 
         if ($this.Ensure -eq [Ensure]::Present)
         {
@@ -253,7 +269,7 @@ class HubotInstallService
             {
                 Write-Verbose "Removing old service"
                 Stop-Service -Name $this.ServiceName -Force
-                Start-Process -FilePath $nssmPath -ArgumentList "remove $($this.ServiceName) confirm" -Wait -NoNewWindow
+                $Helpers.RunProcess($nssmPath,"remove $($this.ServiceName) confirm",$null) | Out-Null
             }
 
             $botLogPath = Join-Path -Path $this.BotPath -ChildPath 'Logs'
@@ -289,7 +305,8 @@ class HubotInstallService
 
             ForEach ($cmd in $arrayOfCmds)
             {
-                Write-Verbose "Running NSSM $($cmd)"
+                # Replacing password so it doesn't show in debug logs
+                Write-Verbose "Running NSSM $($cmd)".Replace($($this.Credential.GetNetworkCredential().Password),'* PASSWORD OBSCURED *')
                 $Helpers.RunProcess($nssmPath,$cmd,$null) | Out-Null
             }
             
