@@ -16,4 +16,15 @@ describe "Hubot DSC Module - Unit Testing" {
             $array.Count | Should BeGreaterThan 1
         }
     }
+
+    context "CheckPathExists" {
+        it "returns true when path that exists is passed" {
+            [HubotHelpers]::new().CheckPathExists($TestDrive) | Should Be $true
+        }
+        it "returns false when path that does not exist is passed" {
+            $guid = (New-Guid).Guid
+            
+            [HubotHelpers]::new().CheckPathExists("$($TestDrive)\$($guid)") | Should Be $false
+        }
+    }
 }

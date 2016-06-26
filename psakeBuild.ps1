@@ -17,16 +17,6 @@ task TestProperties {
 }
 
 task Analyze {
-    if ($env:APPVEYOR)
-    {
-        $mod = Get-Module -Name * | Out-String
-        Write-Host $mod
-
-
-        $res = Get-DscResource | Out-String
-        Write-Host $res
-    }
-
     ForEach ($resource in $DSCResources)
     {      
         try
@@ -90,7 +80,17 @@ task IntegrationDeploy -depends Analyze, Test {
     try
     {
         New-Item -ItemType SymbolicLink -Path $pathInModuleDir -Target $originalPath -Force   
-        
+
+        if ($env:APPVEYOR)
+        {
+            $mod = Get-Module -Name * | Out-String
+            Write-Host $mod
+
+
+            $res = Get-DscResource | Out-String
+            Write-Host $res
+        }
+
         . $PSScriptRoot\Examples\dsc_configuration.ps1
 
         Write-Verbose "Generating mof and putting it in $($PSScriptRoot)\mof"
