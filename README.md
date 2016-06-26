@@ -16,9 +16,7 @@ For an introduction to using Hubot on Windows, take a look at [ChatOps on Window
 
 Parameter | Notes |  Mandatory
 | --- | --- | --- |
-| ChocolateyInstallPath | Path to install Chocolatey | `No` |
-| PsDscRunAsCredential | Credential to run the Chocolatey installations as. Recommend to use the same account you want to run the Hubot service under. | `No` |
-
+Ensure | Ensures that the prerequisites is Present or Absent | `Yes`
 
 ### HubotInstall
 
