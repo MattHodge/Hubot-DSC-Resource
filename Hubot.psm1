@@ -97,9 +97,6 @@ class HubotInstall
     [DscProperty(NotConfigurable)]
     [String]$NodeModulesPath
 
-    [DscProperty(NotConfigurable)]
-    [Boolean]$NodeModulesPathExists
-
     # Gets the resource's current state.
     [HubotInstall] Get()
     {
@@ -107,7 +104,17 @@ class HubotInstall
         $GetObject.BotPath = $this.BotPath
         $GetObject.Ensure = $this.Ensure
         $GetObject.NodeModulesPath = Join-Path -Path $this.BotPath -ChildPath 'node_modules'
-        $GetObject.NodeModulesPathExists = [HubotHelpers]::new().CheckPathExists($GetObject.NodeModulesPath)
+
+
+        if([HubotHelpers]::new().CheckPathExists($GetObject.NodeModulesPath))
+        {
+            $GetObject.Ensure = [Ensure]::Present
+        }
+        else
+        {
+            $GetObject.Ensure = [Ensure]::Absent
+        }
+
 
         return $GetObject
     }
@@ -163,14 +170,14 @@ class HubotInstall
         $TestObject = $This.Get()
 
         # present case
-        if ($this.Ensure -eq [Ensure]::Present)
+        if ($TestObject.Ensure -eq [Ensure]::Present)
         {
-            return $TestObject.NodeModulesPathExists
+            return $true
         }
         # absent case
         else
         {
-            return (-not($TestObject.NodeModulesPathExists))
+            return $false
         }
     }
 }
