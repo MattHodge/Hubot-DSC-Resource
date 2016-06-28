@@ -2,6 +2,8 @@
 
 ![Hubot](http://i.imgur.com/NhTqeZ2.png)
 
+[![Build status](https://ci.appveyor.com/api/projects/status/kjweb2q53xa3198h?svg=true)](https://ci.appveyor.com/project/MattHodge/hubot-dsc-resource)
+
 The **Hubot** module contains the `HubotPrerequisites`, `HubotInstall` and `HubotInstallService` DSC Resources to install Hubot on Windows.
 
 This resource installs and runs Hubot as a service on Windows using NSSM.
