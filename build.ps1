@@ -1,4 +1,5 @@
-﻿[cmdletbinding()]
+﻿#Requires -RunAsAdministrator
+[cmdletbinding()]
 param(
     [string[]]$Task = 'default'
 )

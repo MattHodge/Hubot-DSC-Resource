@@ -118,6 +118,6 @@ task BuildArtifact -depends Analyze, Test, MOFTestDeploy, MOFTest {
 
     if ($env:APPVEYOR)
     {
-        Get-ChildItem -Path $PSScriptRoot\Artifact\*.zip | Push-AppveyorArtifact
+        $zip = Get-ChildItem -Path $PSScriptRoot\Artifact\*.zip |  % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
     }
 }
