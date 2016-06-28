@@ -2,7 +2,7 @@
 {   
     Import-DscResource -ModuleName PSDesiredStateConfiguration
     Import-DscResource -Name MSFT_xRemoteFile -ModuleName xPSDesiredStateConfiguration
-    Import-DscResource -ModuleName @{ModuleName="Hubot"; RequiredVersion="1.1.3"}
+    Import-DscResource -ModuleName @{ModuleName="Hubot"; RequiredVersion="1.1.4"}
 
     node $AllNodes.Where{$_.Role -eq "Hubot"}.NodeName
     {

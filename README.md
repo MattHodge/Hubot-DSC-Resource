@@ -49,3 +49,14 @@ To install the module, use:
 
 The DSC Resource Module is called `Hubot` and is available on the PowerShell Gallery:
 * https://www.powershellgallery.com/packages/Hubot
+
+## Versions
+
+### 1.1.4
+
+* Removing dependency on `cChoco` and `Chocolatey`. This requires the node to reboot after installing Node.js as part of the `HubotPrerequisites` resource unfortunately.
+
+
+### 1.1.3
+
+* Initial Release
