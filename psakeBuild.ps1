@@ -10,7 +10,7 @@
     $pathInModuleDir = 'C:\Program Files\WindowsPowerShell\Modules\Hubot'
 }
 
-task default -depends Analyze, Test, MOFTestDeploy, MOFTest
+task default -depends Analyze, Test, MOFTestDeploy, MOFTest, BuildArtifact
 
 task TestProperties { 
   Assert ($build_version -ne $null) "build_version should not be null"
@@ -108,5 +108,16 @@ task MOFTest -depends Analyze, Test, MOFTestDeploy {
     if ($testResults.FailedCount -gt 0) {
         $testResults | Format-List
         Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
+    }
+}
+
+task BuildArtifact -depends Analyze, Test, MOFTestDeploy, MOFTest {
+    New-Item -Path $PSScriptRoot\Artifact -ItemType Directory -Force
+    Start-Process -FilePath 'robocopy.exe' -ArgumentList "$PSScriptRoot $PSScriptRoot\Artifact\Hubot /S /R:1 /W:1 /XD Artifact .kitchen .git /XF .gitignore build.ps1 psakeBuild.ps1 *.yml" -Wait -NoNewWindow
+    Compress-Archive -Path $PSScriptRoot\Artifact\Hubot -DestinationPath $PSScriptRoot\Artifact\Hubot-$build_version.zip -Force
+
+    if ($env:APPVEYOR)
+    {
+        Get-ChildItem -Path $PSScriptRoot\Artifact\*.zip | Push-AppveyorArtifact
     }
 }
