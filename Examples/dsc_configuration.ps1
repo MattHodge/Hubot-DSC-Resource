@@ -78,7 +78,7 @@ AllNodes = @(
         @{
             NodeName = 'localhost';
             Role = 'Hubot'
-            SlackAPIKey = 'xoxb-19034991254-TdzhRtJniAU7ct2xl4AQSWIP'
+            SlackAPIKey = 'xoxb-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX'
             HubotAdapter = 'slack'
             HubotBotName = 'bender'
             HubotBotPath = 'C:\myhubot'
