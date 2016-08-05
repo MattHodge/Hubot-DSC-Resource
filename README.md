@@ -52,6 +52,9 @@ To install the module, use:
 The DSC Resource Module is called `Hubot` and is available on the PowerShell Gallery:
 * https://www.powershellgallery.com/packages/Hubot
 
+## Testing Using Test-Kitchen
+* Make sure the repo is cloned as `Hubot` or Test-Kitchen will not work.
+
 ## Versions
 
 ### 1.1.4

@@ -49,11 +49,21 @@ describe "Hubot" {
         It "should have a description of Hubot Service" {
             $svc.Description | Should BeExactly 'Hubot Service' 
         }
+
         It "should be running under Hubot account" {
-            $svc.StartName | Should BeExactly '.\Hubot' 
+            $svc.StartName | Should BeExactly 'LocalSystem' 
         }
+
         It "should have a startmode of Auto" {
             $svc.StartMode | Should BeExactly 'Auto'
+        }
+
+        It "should create stdout log file at c:\myhubot\Logs\hubot_bender_log.txt" {
+            'c:\myhubot\Logs\hubot_bender_log.txt' | Should Exist
+        }
+
+        It "should create stderr log file at c:\myhubot\Logs\hubot_bender_error.txt" {
+            'c:\myhubot\Logs\hubot_bender_error.txt' | Should Exist
         }
 
     }

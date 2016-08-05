@@ -2,29 +2,10 @@
 {   
     Import-DscResource -ModuleName PSDesiredStateConfiguration
     Import-DscResource -Name MSFT_xRemoteFile -ModuleName xPSDesiredStateConfiguration
-    Import-DscResource -ModuleName @{ModuleName="Hubot"; RequiredVersion="1.1.4"}
+    Import-DscResource -ModuleName @{ModuleName="Hubot"; RequiredVersion="1.1.5"}
 
     node $AllNodes.Where{$_.Role -eq "Hubot"}.NodeName
-    {
-        # Create a user to install prereqs under and run the hubot service
-        User Hubot
-        {
-            UserName = $Node.HubotUserCreds.UserName
-            Password = $Node.HubotUserCreds
-            Ensure = 'Present'
-            PasswordNeverExpires = $true
-            PasswordChangeRequired = $false
-        }
-        
-        # Create a user to install prereqs under and run the hubot service
-        Group HubotUser
-        {
-            GroupName = 'Administrators'
-            MembersToInclude = $Node.HubotUserCreds.UserName
-            Ensure = 'Present'
-            DependsOn = "[User]Hubot"
-        }
-        
+    {       
         # Set an adapter for hubot to use
         Environment hubotadapter
         {
@@ -86,25 +67,18 @@
             ServiceName = "Hubot_$($Node.HubotBotName)"
             BotAdapter = $Node.HubotAdapter
             Ensure = 'Present'
-            DependsOn = '[HubotInstall]installHubot','[HubotPrerequisites]installPreqs','[Group]HubotUser'
-            Credential = $Node.HubotUserCreds
+            DependsOn = '[HubotInstall]installHubot','[HubotPrerequisites]installPreqs'
         }
     }
 }
 
-# Create Hubot Credentials (save having to enter them every time - don't do this for production!)
-$hubotUserPass = ConvertTo-SecureString 'MyPASSWORD!' -AsPlainText -Force
-$hubotUserCreds = New-Object System.Management.Automation.PSCredential ('Hubot', $hubotUserPass)
-
-
+# Configuration Data
 $configData = @{
 AllNodes = @(
         @{
             NodeName = 'localhost';
-            PSDscAllowPlainTextPassword = $true
             Role = 'Hubot'
-            HubotUserCreds = $hubotUserCreds
-            SlackAPIKey = 'xoxb-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX'
+            SlackAPIKey = 'xoxb-19034991254-TdzhRtJniAU7ct2xl4AQSWIP'
             HubotAdapter = 'slack'
             HubotBotName = 'bender'
             HubotBotPath = 'C:\myhubot'

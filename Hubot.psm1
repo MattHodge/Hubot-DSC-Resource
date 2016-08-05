@@ -63,7 +63,7 @@ class HubotHelpers
         $output.exitcode = $p.ExitCode
 
         $returnObj =  New-Object -Property $output -TypeName PSCustomObject
-        Write-Verbose $returnObj
+        Write-Verbose $returnObj.stdout
         return $returnObj
     }
 
@@ -215,6 +215,12 @@ class HubotInstallService
     [string]$NSSMAppParameters
 
     [DscProperty(NotConfigurable)]
+    [string[]]$NSSMCmdsToRun
+
+    [DscProperty(NotConfigurable)]
+    [string]$BotLoggingPath
+
+    [DscProperty(NotConfigurable)]
     [Boolean]$State_NSSMAppParameters
 
     # Gets the resource's current state.
@@ -256,6 +262,38 @@ class HubotInstallService
                 $GetObject.State_NSSMAppParameters = $true
             }
         }
+
+        # get the bot logging path
+        $GetObject.BotLoggingPath = Join-Path -Path $GetObject.BotPath -ChildPath 'Logs'
+
+        # build an array of NSSM Commands to execute based upon user input
+        $GetObject.NSSMCmdsToRun = @(
+            "install $($this.ServiceName) cmd.exe"
+            "set $($this.ServiceName) AppDirectory $($GetObject.BotPath)"
+            "set $($this.ServiceName) AppParameters ""/c .\bin\hubot.cmd -a $($GetObject.BotAdapter)"""
+            "set $($this.ServiceName) AppStdout ""$($GetObject.BotLoggingPath)\$($GetObject.ServiceName)_log.txt"""
+            "set $($this.ServiceName) AppStderr ""$($GetObject.BotLoggingPath)\$($GetObject.ServiceName)_error.txt"""
+            "set $($this.ServiceName) AppDirectory $($GetObject.BotPath)"
+            "set $($this.ServiceName) AppRotateFiles 1"
+            "set $($this.ServiceName) AppRotateOnline 1"
+            "set $($this.ServiceName) AppRotateSeconds 86400"
+            "set $($this.ServiceName) Description Hubot Service"
+            "set $($this.ServiceName) Start SERVICE_AUTO_START"
+        )
+
+        # if a credetial is passed with no password assume LocalSystem
+        if ([string]::IsNullOrEmpty($GetObject.Credential))
+        {
+            Write-Verbose "No credential passed, using LocalSystem."
+            $GetObject.NSSMCmdsToRun += "set $($GetObject.ServiceName) ObjectName LocalSystem"
+        }
+        # if a credential is passed with a password
+        else
+        {
+            Write-Verbose "Credential passed, using username $($GetObject.Credential.UserName)."
+            $GetObject.NSSMCmdsToRun += "set $($GetObject.ServiceName) ObjectName .\$($GetObject.Credential.UserName) $($GetObject.Credential.GetNetworkCredential().Password)"
+        }
+
         return $GetObject
     }
 
@@ -279,41 +317,12 @@ class HubotInstallService
                 $Helpers.RunProcess($nssmPath,"remove $($this.ServiceName) confirm",$null) | Out-Null
             }
 
-            $botLogPath = Join-Path -Path $this.BotPath -ChildPath 'Logs'
-            Write-Verbose "Creating bot logging path at $($botLogPath)"
-            New-Item -Path $botLogPath -Force -ItemType Directory
+            # Create bot logging path
+            Write-Verbose "Creating bot logging path at $($TestObject.BotLoggingPath)"
+            New-Item -Path $TestObject.BotLoggingPath -Force -ItemType Directory
 
-            $arrayOfCmds = @(
-                "install $($this.ServiceName) cmd.exe"
-                "set $($this.ServiceName) AppDirectory $($this.BotPath)"
-                "set $($this.ServiceName) AppParameters ""/c .\bin\hubot.cmd -a $($this.BotAdapter)"""
-                "set $($this.ServiceName) AppStdout ""$($botLogPath)\$($this.ServiceName)_log.txt"""
-                "set $($this.ServiceName) AppStderr ""$($botLogPath)\$($this.ServiceName)_error.txt"""
-                "set $($this.ServiceName) AppDirectory $($this.BotPath)"
-                "set $($this.ServiceName) AppRotateFiles 1"
-                "set $($this.ServiceName) AppRotateOnline 1"
-                "set $($this.ServiceName) AppRotateSeconds 86400"
-                "set $($this.ServiceName) Description Hubot Service"
-                "set $($this.ServiceName) Start SERVICE_AUTO_START"
-            )
-
-            # if a credetial is passed with no password assume LocalSystem
-            if ([string]::IsNullOrEmpty($this.Credential.UserName))
-            {
-                Write-Verbose "No credential passed, using LocalSystem."
-                $arrayOfCmds += "set $($this.ServiceName) ObjectName LocalSystem"
-            }
-            # if a credential is passed with a password
-            else
-            {
-                Write-Verbose "Credential passed, using username $($this.Credential.UserName)."
-                $arrayOfCmds += "set $($this.ServiceName) ObjectName .\$($this.Credential.UserName) $($this.Credential.GetNetworkCredential().Password)"
-            }
-
-            ForEach ($cmd in $arrayOfCmds)
-            {
-                # Replacing password so it doesn't show in debug logs
-                Write-Verbose "Running NSSM $($cmd)".Replace($($this.Credential.GetNetworkCredential().Password),'* PASSWORD OBSCURED *')
+            ForEach ($cmd in $TestObject.NSSMCmdsToRun)
+            {               
                 $Helpers.RunProcess($nssmPath,$cmd,$null) | Out-Null
             }
             
