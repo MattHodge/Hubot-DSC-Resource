@@ -1,6 +1,7 @@
 ﻿properties {
-    $unitTests = "$PSScriptRoot\Tests\unit"
-    $MOFTests = "$PSScriptRoot\Tests\mof"
+    # $unitTests = "$PSScriptRoot\Tests\unit"
+    $unitTests = Get-ChildItem .\Tests\*Unit_Tests.ps1
+    $mofTests = Get-ChildItem .\Tests\*MOF_Generation_Tests.ps1
     $DSCResources = Get-ChildItem *.psd1,*.psm1 -Recurse
 
     # originalPath is the one containing the .psm1 and .psd1
@@ -68,11 +69,14 @@ task Analyze {
 }
 
 task Test {
-    $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $unitTests
-    # $testResults = Invoke-Pester -Path $unitTests -PassThru
-    if ($testResults.FailedCount -gt 0) {
-        $testResults | Format-List
-        Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
+    ForEach ($unitTest in $unitTests)
+    {
+        $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $unitTest
+
+        if ($testResults.FailedCount -gt 0) {
+            $testResults | Format-List
+            Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
+        }
     }
 }
 
@@ -81,10 +85,12 @@ task MOFTestDeploy -depends Analyze, Test {
     {
         if ($env:APPVEYOR)
         {
+            # copy into the userprofile in appveyor so the module can be loaded
             Start-Process -FilePath 'robocopy.exe' -ArgumentList "$PSScriptRoot $env:USERPROFILE\Documents\WindowsPowerShell\Modules\Hubot /S /R:1 /W:1" -Wait -NoNewWindow
         }
         else
         {
+            # on a local system just create a symlink
             New-Item -ItemType SymbolicLink -Path $pathInModuleDir -Target $originalPath -Force | Out-Null
         }
     }
@@ -96,28 +102,32 @@ task MOFTestDeploy -depends Analyze, Test {
         Write-Output $FailedItem
         throw "The build failed when trying prepare files for MOF tests."
     }
-
-    finally
-    {
-        #Remove-Item -Path $pathInModuleDir -Force -Recurse
-    }
 }
 
 task MOFTest -depends Analyze, Test, MOFTestDeploy {
-    $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $MOFTests
-    if ($testResults.FailedCount -gt 0) {
-        $testResults | Format-List
-        Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
+    ForEach ($moftest in $mofTests)
+    {
+        $testResults = .\Tests\appveyor.pester.ps1 -Test -TestPath $moftest
+        if ($testResults.FailedCount -gt 0) {
+            $testResults | Format-List
+            Write-Error -Message 'One or more Pester unit tests failed. Build cannot continue!'
+        }
     }
 }
 
 task BuildArtifact -depends Analyze, Test, MOFTestDeploy, MOFTest {
+    # Create a clean to build the artifact
     New-Item -Path "$PSScriptRoot\Artifact" -ItemType Directory -Force
-    Start-Process -FilePath 'robocopy.exe' -ArgumentList "`"$($PSScriptRoot)`" `"$($PSScriptRoot)\Artifact\Hubot`" /S /R:1 /W:1 /XD Artifact .kitchen .git /XF .gitignore build.ps1 psakeBuild.ps1 *.yml" -Wait -NoNewWindow
+
+    # Copy the correct items into the artifacts directory, filtering out the junk
+    Start-Process -FilePath 'robocopy.exe' -ArgumentList "`"$($PSScriptRoot)`" `"$($PSScriptRoot)\Artifact\Hubot`" /S /R:1 /W:1 /XD Artifact .kitchen .git /XF .gitignore build.ps1 psakeBuild.ps1 *.yml *.xml" -Wait -NoNewWindow
+
+    # Create a zip file artifact
     Compress-Archive -Path $PSScriptRoot\Artifact\Hubot -DestinationPath $PSScriptRoot\Artifact\Hubot-$build_version.zip -Force
 
     if ($env:APPVEYOR)
     {
+        # Push the artifact into appveyor
         $zip = Get-ChildItem -Path $PSScriptRoot\Artifact\*.zip |  % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
     }
 }

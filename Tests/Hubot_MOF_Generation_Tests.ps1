@@ -1,5 +1,7 @@
 ﻿describe "Hubot DSC Module - MOF Testing" {
 
+    $dscExamplePath = Join-path -Path '.\Examples' -ChildPath 'dsc_configuration.ps1'
+
     context "Get-DSCResource" {
         $res = Get-DscResource
         
@@ -23,19 +25,19 @@
 
     context "Example dsc_configuration" {
         it "is valid powershell" {
-            $psfile = Get-Content -Path .\Examples\dsc_configuration.ps1 -Raw -ErrorAction Stop
+            $psfile = Get-Content -Path $dscExamplePath -Raw -ErrorAction Stop
             $errors = $null
             $null = [System.Management.Automation.PSParser]::Tokenize($psfile, [ref]$errors)
             $errors.Count | Should Be 0
         }
 
-        . .\Examples\dsc_configuration.ps1
+        . $dscExamplePath
 
-        it "module version of Hubot.psd1 matches module version in dsc_example.ps1" {
+        it "module version of Hubot.psd1 matches module version in $dscExamplePath" {
             $moduleVersion = Select-String -Path .\Hubot.psd1 -Pattern "ModuleVersion = '(.*)'"
             $moduleVersion = $moduleVersion.Matches.Groups[1].Value
 
-            $exampleVersion = Select-String -Path .\Examples\dsc_configuration.ps1 -Pattern 'ModuleName=\"Hubot\"\; RequiredVersion=\"(.*)\"'
+            $exampleVersion = Select-String -Path $dscExamplePath -Pattern 'ModuleName=\"Hubot\"\; RequiredVersion=\"(.*)\"'
             $exampleVersion = $exampleVersion.Matches.Groups[1].Value
 
             $exampleVersion | Should BeExactly $moduleVersion

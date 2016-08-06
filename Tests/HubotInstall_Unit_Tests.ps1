@@ -1,4 +1,8 @@
-﻿$dscModule = 'Hubot'
+﻿#################
+#  TEST HEADER  #
+#################
+
+$dscModule = 'Hubot'
 
 $originalLocation = Get-Location
 
@@ -6,7 +10,11 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $here
 
 
-describe "Hubot DSC Module - Unit Testing" {
+describe "HubotInstall" {
+
+    ######################################
+    #  USED FOR TESTING CLASS BASED DSC  #
+    ######################################
 
     # To support $root\Tests folder structure
     If (Test-Path "..\$dscModule.psm1") {Copy-Item "..\$dscModule.psm1" 'TestDrive:\script.ps1'}
@@ -18,33 +26,13 @@ describe "Hubot DSC Module - Unit Testing" {
     # Dot source the file to brint classes into current session
     . 'TestDrive:\script.ps1'
 
+    ################
+    #  TEST START  #
+    ################
+
     $guid = (New-Guid).Guid
 
-    context "RefreshPathVariable" {
-        it "returns something" {
-            [HubotHelpers]::new().RefreshPathVariable() | Should Not Be Null
-        }
-
-        it "return should contain atleast one semicolon" {
-            [HubotHelpers]::new().RefreshPathVariable() | Should BeLike "*;*"
-        }
-
-        it "when split into array should have 2 or more items" {
-            $array = [HubotHelpers]::new().RefreshPathVariable() -split ';'
-            $array.Count | Should BeGreaterThan 1
-        }
-    }
-
-    context "CheckPathExists" {
-        it "returns true when path that exists is passed" {
-            [HubotHelpers]::new().CheckPathExists("TestDrive:\") | Should Be $true
-        }
-        it "returns false when path that does not exist is passed" {          
-            [HubotHelpers]::new().CheckPathExists("TestDrive:\$($guid)") | Should Be $false
-        }
-    }
-
-    context "HubotInstall - Get" {
+    context "Get" {
         it "does not throw" {
             { 
                 $x = [HubotInstall]::new()
@@ -84,7 +72,7 @@ describe "Hubot DSC Module - Unit Testing" {
         }
     }
 
-    context "HubotInstall - Set" {
+    context "Set" {
         BeforeEach {
             $TestClass = [HubotInstall]::new()          
 
@@ -259,142 +247,6 @@ $getCmdMockObject = @"
             $result = $TestClass.Get()
             $result.Set()
             Assert-MockCalled Start-Process 2 -Exactly -ParameterFilter {$FilePath -like "*npm*" -and $ArgumentList -like "*install*"} -Scope It
-        }
-    }
-
-    
-    context "HubotInstallService - Get" {
-        BeforeEach {
-            $TestClass = [HubotInstallService]::new()
-            
-            $mockCredentails = @"
-<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
-  <Obj RefId="0">
-    <TN RefId="0">
-      <T>System.Management.Automation.PSCredential</T>
-      <T>System.Object</T>
-    </TN>
-    <ToString>System.Management.Automation.PSCredential</ToString>
-    <Props>
-      <S N="UserName">testcred</S>
-      <SS N="Password">01000000d08c9ddf0115d1118c7a00c04fc297eb0100000022024a8d285b3c42bafde6694bbb66d3000000000200000000001066000000010000200000002b8c53179bb32647d53242cccea7d78b19539e734207a0b42eed69dad1bedb2e000000000e8000000002000020000000c220783e1d75689f27513baa1ff11cd7fee988b4b90cb3a1ae43643d3d84fee920000000232161e521b14022a83daf792dc02b060abeac90b97e7abd4a907a8d33e935e14000000051395f3ff0f13f388eb54eb2c83a52ebbbf41715f3af76217b1e5b9f1a738c92f547a2cbc03b481cdd9a94267f06dbc4e0774477531f822b92b3b0503847b7e0</SS>
-    </Props>
-  </Obj>
-</Objs>
-"@
-
-            $cred = [System.Management.Automation.PSSerializer]::Deserialize($mockCredentails)          
-        }
-
-        it "does not throw" {
-            { 
-                $TestClass.BotPath = 'C:\myhubot'
-                $TestClass.ServiceName = 'hubot_service'
-                $TestClass.BotAdapter = 'slack'
-                $TestClass.Ensure = 'Present'
-                $TestClass.Get() 
-            } | Should Not Throw
-        }
-
-        it "NSSMAppParameters contains the user provided adapater" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMAppParameters | Should Be '/c .\bin\hubot.cmd -a slack'
-        }
-
-        it "NSSMCmdsToRun is not null" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMCmdsToRun | Should Not BeNullOrEmpty
-        }
-
-        it "BotLoggingPath should be 'C:\myhubot\Logs'" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().BotLoggingPath | Should BeExactly 'C:\myhubot\Logs'
-        }
-
-        it "nssm cmd 'set hubot_service AppStdout' should be 'c:\myhubot\Logs\hubot_service_log.txt'" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMCmdsToRun -contains "set hubot_service AppStdout `"c:\myhubot\Logs\hubot_service_log.txt`"" | Should Be $true
-        }
-
-        it "nssm cmd 'set hubot_service AppStderr' should be 'c:\myhubot\Logs\hubot_service_error.txt'" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMCmdsToRun -contains "set hubot_service AppStderr `"c:\myhubot\Logs\hubot_service_error.txt`"" | Should Be $true
-        }
-
-        it "nssm uses localsystem to create service when no credential passed" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMCmdsToRun -contains "set hubot_service ObjectName LocalSystem" | Should Be $true
-        }
-
-        it "nssm uses credentials to create service when a is credential passed" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Credential = $cred
-            $TestClass.Get().NSSMCmdsToRun -contains "set hubot_service ObjectName .\$($cred.UserName) $($cred.GetNetworkCredential().Password)" | Should Be $true
-        }
-    }
-
-    context "HubotInstallService - Set" {
-        BeforeEach {
-            $TestClass = [HubotInstallService]::new()          
-
-            Mock Start-Process { return $true }
-            
-            Mock Get-Command { return $myobj }
-        }
-
-        it "does not throw" {
-            { 
-                $TestClass.BotPath = 'C:\myhubot'
-                $TestClass.ServiceName = 'hubot_service'
-                $TestClass.BotAdapter = 'slack'
-                $TestClass.Ensure = 'Present'
-                $TestClass.Set()
-            } | Should Throw
-        }
-
-        it "NSSMAppParameters contains the user provided adapater" {
-                
-            $TestClass = [HubotInstallService]::new()
-            $TestClass.BotPath = 'C:\myhubot'
-            $TestClass.ServiceName = 'hubot_service'
-            $TestClass.BotAdapter = 'slack'
-            $TestClass.Ensure = 'Present'
-            $TestClass.Get().NSSMAppParameters | Should Be '/c .\bin\hubot.cmd -a slack'
         }
     }
 }
