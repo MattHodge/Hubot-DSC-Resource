@@ -47,6 +47,12 @@ To install the module, use:
 
 `Install-Module -Name Hubot`
 
+A video of the installation on a remote machine:
+
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=Gh-vYprIo7c
+" target="_blank"><img src="http://img.youtube.com/vi/Gh-vYprIo7c/0.jpg"
+alt="Hubot DSC Installation Video" border="10" /></a>
+
 ## Packaging
 
 The DSC Resource Module is called `Hubot` and is available on the PowerShell Gallery:
